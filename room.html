@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liteon - Room management (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light dark;
+  --canvas:#EDF1F3; --surface:#FFFFFF; --ink:#16252B; --ink2:#5A6D76; --line:#D5DEE2;
+  --brand:#1E4FD8; --brand-ink:#FFFFFF; --info-bg:#E1E9FC;
+  --ok:#12805C; --ok-bg:#DDF3EA; --warn:#8A5200; --warn-bg:#FCEBCB; --bad:#B3261E; --bad-bg:#FBE0DD;
+  --busy:#C3CFD4; --wall1:#DCE4E7; --wall2:#C6D2D6; --amber:#D98A00;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --canvas:#0E181D; --surface:#16252B; --ink:#E7EEF1; --ink2:#9DB0B8; --line:#27393F;
+    --brand:#7B9BFF; --brand-ink:#0E181D; --info-bg:#1D2A4F;
+    --ok:#5FD3A5; --ok-bg:#12372B; --warn:#F2B552; --warn-bg:#3A2D12; --bad:#FF8F86; --bad-bg:#3E1C19;
+    --busy:#33474E; --wall1:#1B2B31; --wall2:#14222B; --amber:#F2B552;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:'Be Vietnam Pro','Noto Sans TC',system-ui,-apple-system,'Segoe UI','PingFang TC','Microsoft JhengHei',sans-serif;font-size:14px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:16px 20px 48px}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:8px 0 16px}
+.brand h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em}
+.brand p{margin:0;color:var(--ink2);font-size:12.5px}
+.tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.tools label{display:flex;gap:8px;align-items:center;color:var(--ink2);font-size:12.5px}
+.tools input[type=time]{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:2px}
+.seg button{border:0;background:transparent;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--ink2);font-size:12.5px}
+.seg button[aria-pressed=true]{background:var(--brand);color:var(--brand-ink);font-weight:600}
+
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+nav.tabs button{border:0;background:transparent;padding:10px 16px;cursor:pointer;color:var(--ink2);font-weight:500;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--brand);font-weight:600}
+
+.view{display:none}.view.on{display:block}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+h2{font-size:16px;margin:0 0 4px;font-weight:600}
+h3{font-size:13.5px;margin:18px 0 8px;font-weight:600}
+.muted{color:var(--ink2)}
+.small{font-size:12.5px}
+.sub{font-size:12.5px;color:var(--ink2);margin:0 0 12px}
+
+/* booking */
+.book-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.bar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:end;margin:12px 0 14px}
+.bar label,.field{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink2)}
+input[type=text],input[type=date],input[type=search],input[type=number],select{background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+.field input,.field select{width:100%}
+.axis,.row{display:grid;grid-template-columns:190px minmax(0,1fr) 124px;gap:16px;align-items:center}
+.axis{font-size:11.5px;color:var(--ink2);padding:0 14px;margin-bottom:4px}
+.axis .ticks{position:relative;height:16px}
+.axis .ticks span{position:absolute;transform:translateX(-50%)}
+.row{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;margin-bottom:8px;text-align:left;width:100%}
+.row:hover:not([aria-disabled=true]){border-color:var(--brand)}
+.row[aria-disabled=true]{opacity:.6;cursor:not-allowed}
+.row.sel{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand);background:color-mix(in srgb,var(--brand) 6%,var(--surface))}
+.rname{font-weight:600}
+.rmeta{font-size:12px;color:var(--ink2)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:5px;background:var(--info-bg);color:var(--brand);margin-right:4px;margin-top:2px}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.track{position:relative;height:28px;border-radius:4px;background:
+  repeating-linear-gradient(to right,transparent 0,transparent calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px),var(--line) calc(100%/12))}
+.blk{position:absolute;top:4px;bottom:4px;border-radius:4px;background:var(--busy)}
+.blk.pending{background:repeating-linear-gradient(45deg,var(--warn-bg),var(--warn-bg) 4px,transparent 4px,transparent 8px);border:1px solid var(--warn)}
+.win{position:absolute;top:0;bottom:0;border:2px solid var(--brand);border-radius:5px;background:color-mix(in srgb,var(--brand) 14%,transparent)}
+.now{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--bad)}
+.state{font-size:12.5px;font-weight:600;text-align:right}
+.state.free{color:var(--ok)}.state.busy{color:var(--ink2)}.state.cap{color:var(--warn)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 10px;border-radius:999px;background:var(--canvas);border:1px solid var(--line);font-size:12.5px;margin:0 6px 6px 0}
+.chip button{border:0;background:transparent;cursor:pointer;color:var(--ink2);padding:0 4px;font-size:14px;line-height:1}
+.results{max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px;display:none}
+.results.on{display:block}
+.results button{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;cursor:pointer}
+.results button:hover{background:var(--canvas)}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer}
+.radio input{margin-top:3px}
+.btn{border:0;border-radius:8px;padding:10px 16px;background:var(--brand);color:var(--brand-ink);font-weight:600;cursor:pointer;width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);width:auto;padding:5px 10px;font-weight:500;font-size:12.5px}
+.btn.sm{width:auto;padding:5px 10px;font-size:12.5px}
+.note{font-size:12.5px;color:var(--ink2);margin:8px 0}
+.note.bad{color:var(--bad)}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.info{background:var(--info-bg);color:var(--brand)}.pill.gray{background:var(--canvas);color:var(--ink2);border:1px solid var(--line)}
+
+/* door */
+.door-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+.stage{display:flex;justify-content:center;align-items:flex-end;gap:36px;padding:36px 20px 28px;border-radius:14px;background:linear-gradient(var(--wall1),var(--wall2));border:1px solid var(--line);min-height:470px;overflow:hidden}
+.doorwrap{perspective:700px;text-align:center}
+.leaf{width:160px;height:340px;background:var(--surface);border:1px solid var(--line);border-radius:6px 6px 0 0;position:relative;transform-origin:left center;transition:transform .7s ease;box-shadow:inset 0 0 0 8px color-mix(in srgb,var(--line) 50%,transparent)}
+.leaf.open{transform:rotateY(-32deg)}
+.leaf .handle{position:absolute;right:14px;top:170px;width:8px;height:44px;border-radius:4px;background:var(--ink2)}
+.maglock{position:absolute;top:-14px;left:12px;right:12px;height:10px;border-radius:3px;background:var(--bad);transition:background .3s}
+.leaf.open .maglock{background:var(--ok)}
+.lockcap{margin-top:10px;font-size:12.5px;font-weight:600}
+.terminal{width:236px;background:#0B1418;border-radius:28px;padding:14px;color:#E7EEF1;margin-bottom:70px;box-shadow:0 14px 30px rgba(0,0,0,.28)}
+.tscreen{background:#12232A;border-radius:18px;padding:12px 12px 16px;text-align:center;min-height:318px;display:flex;flex-direction:column}
+.thead{display:flex;justify-content:space-between;font-size:11.5px;color:#9DB0B8}
+.vf{width:158px;height:158px;margin:16px auto 12px;border-radius:50%;border:3px solid #3B5560;position:relative;overflow:hidden;background:#0A1317;transition:border-color .25s}
+.vf svg{position:absolute;inset:0;width:100%;height:100%}
+.vf video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none}
+.sweep{position:absolute;left:0;right:0;height:3px;top:0;background:#8FB0FF;box-shadow:0 0 12px #8FB0FF;display:none}
+.terminal[data-state=scan] .sweep{display:block;animation:sweep 1.1s ease-in-out infinite alternate}
+.terminal[data-state=scan] .vf{border-color:#8FB0FF}
+.terminal[data-state=ok] .vf{border-color:#2BC48A}
+.terminal[data-state=deny] .vf{border-color:#FF6B5E}
+@keyframes sweep{from{top:4%}to{top:94%}}
+.tmsg{font-size:16px;font-weight:700;margin-top:2px}
+.tsub{font-size:12px;color:#9DB0B8;margin-top:4px;min-height:34px}
+.terminal[data-state=ok] .tmsg{color:#47D9A0}
+.terminal[data-state=deny] .tmsg{color:#FF8F86}
+.vf .mark{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:64px;background:rgba(10,19,23,.72)}
+.terminal[data-state=ok] .mark.okm{display:flex;color:#47D9A0}
+.terminal[data-state=deny] .mark.nom{display:flex;color:#FF8F86}
+.led{width:34px;height:4px;border-radius:2px;background:#3B5560;margin:12px auto 0}
+.terminal[data-state=ok] .led{background:#47D9A0}.terminal[data-state=deny] .led{background:#FF8F86}.terminal[data-state=scan] .led{background:#8FB0FF}
+
+/* history */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em}
+.hist-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:600;font-size:12.5px;color:var(--ink2);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.ubar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px}
+.ubar .n{width:56px;flex:none}.ubar .b{flex:1;height:10px;background:var(--canvas);border-radius:5px;overflow:hidden}
+.ubar .b i{display:block;height:100%;background:var(--brand);border-radius:5px}.ubar .v{width:44px;text-align:right;flex:none;color:var(--ink2)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0;align-items:end}
+
+/* dashboard */
+.dash-ctl{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:end;margin-bottom:14px}
+.dash-ctl .field{min-width:150px}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.kpi span{font-size:12.5px;color:var(--ink2)}
+.dash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.urow{display:grid;grid-template-columns:58px minmax(0,1fr) 150px;gap:12px;align-items:center;margin:9px 0;font-size:13px}
+.urow .tr{height:14px;border-radius:7px;background:var(--canvas);overflow:hidden}
+.urow .tr i{display:block;height:100%;border-radius:7px;background:var(--brand)}
+.urow .tr i.low{background:var(--amber)}.urow .tr i.high{background:var(--ok)}
+.urow .v{text-align:right;color:var(--ink2);font-size:12.5px;white-space:nowrap}
+.urow .v b{color:var(--ink)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.chart svg{width:100%;height:auto;display:block}
+.chart svg text{fill:var(--ink2);font-size:10px;font-family:inherit}
+.heat{display:grid;grid-template-columns:48px repeat(12,minmax(0,1fr));gap:3px;margin-top:8px;font-size:11px}
+.heat .hl{color:var(--ink2);display:flex;align-items:center;justify-content:center}
+.heat .hl.wd{justify-content:flex-start}
+.hc{height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10.5px}
+.rank{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.rank:last-child{border-bottom:0}
+.rank .no{width:22px;height:22px;border-radius:50%;background:var(--info-bg);color:var(--brand);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.rank .nm{flex:1;min-width:0}
+.rank .val{text-align:right;white-space:nowrap}
+.ins{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.ins:last-child{border-bottom:0}
+.ins::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:7px}
+.big3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0 4px}
+.big3 div{background:var(--canvas);border-radius:10px;padding:10px 12px}
+.big3 b{display:block;font-size:22px;letter-spacing:-.02em}
+.big3 span{font-size:12px;color:var(--ink2)}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--canvas);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9;max-width:90vw}
+.toast.on{opacity:1}
+
+@media (max-width:1060px){
+  .book-grid,.door-grid,.hist-grid,.dash-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .axis,.row{grid-template-columns:1fr}
+  .axis>div:first-child,.axis>div:last-child{display:none}
+  .state{text-align:left}
+  .urow{grid-template-columns:52px minmax(0,1fr) 120px}
+}
+@media (prefers-reduced-motion:reduce){
+  .leaf{transition:none}.terminal[data-state=scan] .sweep{animation:none;top:50%}
+}
+[hidden]{display:none!important}
+dialog{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(640px,94vw);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(8,16,20,.55)}
+.ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 0}
+.ed-grid .span2{grid-column:1/-1}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.chk{display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;cursor:pointer}
+.dlg-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.btn.danger{background:var(--bad);color:#fff}
+.btn.ghost.dng{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+@media (max-width:600px){.ed-grid,.checks{grid-template-columns:1fr}}
+#print-head{display:none}
+@media print{
+  :root{--canvas:#fff;--surface:#fff;--ink:#16252B;--ink2:#5A6D76;--line:#D5DEE2;--brand:#1E4FD8;--brand-ink:#fff;--info-bg:#E1E9FC;
+    --ok:#12805C;--ok-bg:#DDF3EA;--warn:#8A5200;--warn-bg:#FCEBCB;--bad:#B3261E;--bad-bg:#FBE0DD;--amber:#D98A00}
+  @page{size:A4 landscape;margin:10mm}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:11px}
+  .wrap{max-width:none;padding:0}
+  .top,nav.tabs,.dash-ctl,.toast,dialog{display:none!important}
+  #print-head{display:block;margin-bottom:10px;border-bottom:2px solid var(--brand);padding-bottom:6px}
+  #print-head h1{font-size:18px;margin:0}
+  #print-head p{margin:2px 0 0;font-size:11px;color:var(--ink2)}
+  .kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px;margin-bottom:10px}
+  .kpi b{font-size:20px}
+  .dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px;margin-bottom:0}
+  .panel,.kpi{break-inside:avoid;page-break-inside:avoid;padding:10px}
+  .urow{grid-template-columns:58px minmax(0,1fr) 150px;margin:5px 0}
+  .hc{height:22px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="print-head"><h1 id="ph-title"></h1><p id="ph-sub"></p></div>
+  <header class="top">
+    <div class="brand">
+      <h1 data-i18n="app_title"></h1>
+      <p data-i18n="app_sub"></p>
+    </div>
+    <div class="tools">
+      <label><span data-i18n="clock_label"></span>
+        <input type="time" id="clock" value="09:55" step="300">
+      </label>
+      <div class="seg" role="group" aria-label="Role">
+        <button id="role-staff" aria-pressed="true" data-i18n="role_staff"></button>
+        <button id="role-admin" aria-pressed="false" data-i18n="role_admin"></button>
+      </div>
+      <div class="seg" role="group" aria-label="Language">
+        <button id="lang-vi" aria-pressed="true">VI</button>
+        <button id="lang-en" aria-pressed="false">EN</button>
+        <button id="lang-zh" aria-pressed="false">中文</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-book" aria-selected="true" data-i18n="tab_book"></button>
+    <button role="tab" id="tab-door" aria-selected="false" data-i18n="tab_door"></button>
+    <button role="tab" id="tab-hist" aria-selected="false" data-i18n="tab_hist"></button>
+    <button role="tab" id="tab-manage" aria-selected="false" data-i18n="tab_manage" hidden></button>
+    <button role="tab" id="tab-dash" aria-selected="false" data-i18n="tab_dash" hidden></button>
+  </nav>
+
+  <!-- ========== MANAGE BOOKINGS (admin) ========== -->
+  <section class="view" id="v-manage">
+    <div class="panel">
+      <h2 data-i18n="mg_title"></h2>
+      <p class="sub" data-i18n="mg_sub"></p>
+      <div class="filters">
+        <label class="field"><span data-i18n="mg_scope"></span> <select id="m-scope"></select></label>
+        <label class="field"><span data-i18n="th_room"></span> <select id="m-room"></select></label>
+        <label class="field"><span data-i18n="th_status"></span> <select id="m-status"></select></label>
+        <label class="field" style="flex:1;min-width:200px"><span data-i18n="mg_search_l"></span> <input type="search" id="m-q" data-i18n-ph="mg_search" autocomplete="off"></label>
+      </div>
+      <div style="overflow:auto"><table><thead><tr>
+        <th data-i18n="f_date"></th><th data-i18n="th_slot"></th><th data-i18n="th_room"></th><th data-i18n="f_title"></th><th data-i18n="th_owner"></th>
+        <th data-i18n="th_parts"></th><th data-i18n="who_open"></th><th data-i18n="th_status"></th><th data-i18n="th_actions"></th>
+      </tr></thead><tbody id="m-body"></tbody></table></div>
+      <p class="note" id="m-count"></p>
+    </div>
+  </section>
+
+  <!-- ========== DASHBOARD ========== -->
+  <section class="view" id="v-dash">
+    <div class="dash-ctl">
+      <label class="field"><span data-i18n="dash_period"></span>
+        <select id="x-days"><option value="30" data-i18n="dash_p30"></option><option value="7" data-i18n="dash_p7"></option></select></label>
+      <label class="field"><span data-i18n="dash_cap"></span>
+        <input type="number" id="x-cap" min="20" max="400" step="10" value="160"></label>
+      <button class="btn ghost" id="x-pdf" data-i18n="pdf_btn"></button>
+      <p class="note" style="margin:0 0 6px;max-width:520px" data-i18n="dash_cap_note"></p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="dash-grid">
+      <div class="panel" style="grid-column:1/-1">
+        <h2 data-i18n="c_util_h"></h2><p class="sub" data-i18n="c_util_sub"></p>
+        <div id="c-util"></div>
+        <div class="legend"><span><i style="background:var(--amber)"></i><span data-i18n="lg_low"></span></span><span><i style="background:var(--brand)"></i><span data-i18n="lg_mid"></span></span><span><i style="background:var(--ok)"></i><span data-i18n="lg_high"></span></span></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_trend_h"></h2><p class="sub" id="c-trend-sub"></p>
+        <div class="chart" id="c-trend"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_heat_h"></h2><p class="sub" data-i18n="c_heat_note"></p>
+        <div id="c-heat"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_top_h"></h2><p class="sub" data-i18n="c_top_sub"></p>
+        <div id="c-top"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_ns_h"></h2><p class="sub" data-i18n="c_ns_sub"></p>
+        <div id="c-ns"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_dept_h"></h2><p class="sub" data-i18n="c_dept_sub"></p>
+        <div id="c-dept"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="c_acc_h"></h2><p class="sub" data-i18n="c_acc_sub"></p>
+        <div id="c-acc"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== BOOKING ========== -->
+  <section class="view on" id="v-book">
+    <div class="book-grid">
+      <div class="panel">
+        <h2 data-i18n="h_choose"></h2>
+        <div class="bar">
+          <label><span data-i18n="f_date"></span> <input type="date" id="f-date"></label>
+          <label><span data-i18n="f_from"></span> <select id="f-start"></select></label>
+          <label><span data-i18n="f_to"></span> <select id="f-end"></select></label>
+        </div>
+        <div class="axis"><div></div><div class="ticks" id="axis"></div><div></div></div>
+        <div id="rooms"></div>
+        <p class="note" data-i18n="legend_note"></p>
+      </div>
+
+      <aside class="panel">
+        <h2 data-i18n="h_info"></h2>
+        <div id="sum-room" class="note"></div>
+        <label class="field" style="margin-top:10px"><span data-i18n="f_title"></span>
+          <input type="text" id="f-title" data-i18n-ph="ph_title">
+        </label>
+
+        <h3><span data-i18n="participants"></span> <span class="muted small" id="pcount"></span></h3>
+        <div id="chips"></div>
+        <input type="search" id="f-search" data-i18n-ph="ph_search" style="width:100%" autocomplete="off">
+        <div class="results" id="results"></div>
+
+        <h3 data-i18n="who_open"></h3>
+        <label class="radio"><input type="radio" name="mode" value="registered" checked>
+          <span><b data-i18n="mode_reg_t"></b><br><span class="muted small" data-i18n="mode_reg_d"></span></span></label>
+        <label class="radio"><input type="radio" name="mode" value="course">
+          <span><b data-i18n="mode_course_t"></b><br><span class="muted small" data-i18n="mode_course_d"></span></span></label>
+
+        <div class="note" id="msg"></div>
+        <button class="btn" id="btn-book" disabled></button>
+
+        <h3 data-i18n="h_mine"></h3>
+        <div id="mine"></div>
+        <div id="admin-box"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========== DOOR ========== -->
+  <section class="view" id="v-door">
+    <div class="door-grid">
+      <div class="stage">
+        <div class="doorwrap">
+          <div class="leaf" id="leaf"><div class="maglock"></div><div class="handle"></div></div>
+          <div class="lockcap" id="lockcap"></div>
+        </div>
+        <div class="terminal" id="terminal" data-state="idle">
+          <div class="tscreen">
+            <div class="thead"><span id="t-room">P.201</span><span id="t-clock">09:55</span></div>
+            <div class="vf">
+              <video id="t-video" autoplay muted playsinline></video>
+              <svg id="t-sil" viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="40" r="16" fill="#27424D"/><path d="M18 100c0-22 14-34 32-34s32 12 32 34z" fill="#27424D"/>
+                <g stroke="#6F8F9B" stroke-width="2" fill="none" stroke-linecap="round">
+                  <path d="M14 30V16h14"/><path d="M72 16h14v14"/><path d="M14 70v14h14"/><path d="M72 84h14V70"/>
+                </g>
+              </svg>
+              <div class="sweep"></div>
+              <div class="mark okm">&#10003;</div><div class="mark nom">&#10005;</div>
+            </div>
+            <div class="tmsg" id="t-msg"></div>
+            <div class="tsub" id="t-sub"></div>
+            <div class="led"></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <h2 data-i18n="door_h"></h2>
+        <label class="field" style="margin-top:10px"><span data-i18n="d_room"></span> <select id="d-room"></select></label>
+        <label class="field" style="margin-top:10px"><span data-i18n="d_person"></span> <select id="d-person"></select></label>
+        <label class="radio" style="margin-top:12px"><input type="checkbox" id="d-cam">
+          <span><b data-i18n="d_cam_t"></b><br><span class="muted small" data-i18n="d_cam_d"></span></span></label>
+        <button class="btn" id="d-scan" data-i18n="d_scan"></button>
+
+        <h3 data-i18n="d_today_h"></h3>
+        <div id="d-today"></div>
+        <h3 data-i18n="d_log_h"></h3>
+        <div id="d-log"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========== HISTORY ========== -->
+  <section class="view" id="v-hist">
+    <div class="stats" id="stats"></div>
+    <div class="hist-grid">
+      <div class="panel">
+        <h2 data-i18n="h_title"></h2>
+        <div class="filters">
+          <label class="field"><span data-i18n="th_room"></span> <select id="h-room"></select></label>
+          <label class="field"><span data-i18n="th_person"></span> <select id="h-person"></select></label>
+          <label class="field"><span data-i18n="th_event"></span> <select id="h-type"></select></label>
+          <button class="btn ghost" id="h-xlsx" data-i18n="xlsx_btn"></button>
+          <button class="btn ghost" id="h-csv" data-i18n="csv"></button>
+        </div>
+        <div style="overflow:auto"><table><thead><tr>
+          <th data-i18n="th_time"></th><th data-i18n="th_room"></th><th data-i18n="th_person"></th><th data-i18n="th_event"></th><th data-i18n="th_note"></th>
+        </tr></thead><tbody id="h-body"></tbody></table></div>
+        <p class="note" id="h-count"></p>
+      </div>
+      <aside class="panel">
+        <h2 data-i18n="usage7_h"></h2>
+        <div id="usage" style="margin-top:12px"></div>
+        <p class="note" data-i18n="usage_note"></p>
+      </aside>
+    </div>
+  </section>
+</div>
+<dialog id="dlg-edit">
+  <h2 data-i18n="ed_title"></h2>
+  <div class="ed-grid">
+    <label class="field"><span data-i18n="th_room"></span><select id="ed-room"></select></label>
+    <label class="field"><span data-i18n="f_date"></span><input type="date" id="ed-date"></label>
+    <label class="field"><span data-i18n="f_from"></span><select id="ed-start"></select></label>
+    <label class="field"><span data-i18n="f_to"></span><select id="ed-end"></select></label>
+    <label class="field span2"><span data-i18n="f_title"></span><input type="text" id="ed-title"></label>
+    <label class="field"><span data-i18n="th_owner"></span><select id="ed-owner"></select></label>
+    <label class="field"><span data-i18n="th_status"></span><select id="ed-status"></select></label>
+    <label class="field span2"><span data-i18n="who_open"></span><select id="ed-mode"></select></label>
+  </div>
+  <h3 data-i18n="participants"></h3>
+  <div class="checks" id="ed-parts"></div>
+  <p class="note bad" id="ed-err" role="alert"></p>
+  <div class="dlg-actions"><button class="btn ghost" id="ed-close" data-i18n="ed_cancel"></button><button class="btn sm" id="ed-save" data-i18n="ed_save"></button></div>
+</dialog>
+<dialog id="dlg-del">
+  <h2 data-i18n="del_title"></h2>
+  <p id="del-body" style="margin:10px 0 0"></p>
+  <div class="dlg-actions"><button class="btn ghost" id="del-close" data-i18n="ed_cancel"></button><button class="btn sm danger" id="del-ok" data-i18n="del_confirm"></button></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =====================  i18n  ===================== */
+const TR = [
+['app_title','Quản lý phòng học và phòng họp','Classroom and meeting room management','教室與會議室管理'],
+['app_sub','Liteon · Bản mô phỏng, dữ liệu mẫu','Liteon · Prototype with sample data','Liteon · 原型展示（範例資料）'],
+['clock_label','Giờ hệ thống (mô phỏng)','System time (simulated)','系統時間（模擬）'],
+['role_staff','Nhân viên','Staff','員工'],['role_admin','Quản trị','Admin','管理員'],
+['tab_dash','Dashboard','Dashboard','儀表板'],['tab_book','Đặt phòng','Book a room','預約會議室'],
+['tab_door','Mở cửa bằng khuôn mặt','Face unlock','人臉開門'],['tab_hist','Lịch sử sử dụng','Usage history','使用紀錄'],
+/* booking */
+['h_choose','Chọn phòng và thời gian','Choose a room and time','選擇會議室與時間'],
+['f_date','Ngày','Date','日期'],['f_from','Từ','From','開始'],['f_to','Đến','To','結束'],
+['legend_note','Thanh màu xám là khung giờ đã có lịch. Thanh sọc vàng là lịch đang chờ duyệt. Khung xanh là khoảng thời gian bạn chọn. Vạch đỏ là giờ hệ thống.','Grey bars are booked slots. Striped bars are waiting for approval. The blue frame is the time you selected. The red line is the system time.','灰色為已預約時段，斜線為待審核，藍框為您選擇的時間，紅線為系統時間。'],
+['h_info','Thông tin đặt phòng','Booking details','預約資訊'],
+['f_title','Nội dung','Title','主題'],['ph_title','VD: Đào tạo nhân viên mới','e.g. New hire onboarding','例：新進員工訓練'],
+['participants','Người tham gia','Participants','參加人員'],['ph_search','Tìm theo tên hoặc phòng ban','Search by name or department','依姓名或部門搜尋'],
+['who_open','Ai được mở cửa','Who can unlock the door','誰可以開門'],
+['mode_reg_t','Chỉ người đặt phòng','Booker only','僅限預約人'],
+['mode_reg_d','Chỉ khuôn mặt của người đăng ký mở được cửa.','Only the booker\'s face unlocks the door.','只有預約人的臉可以開門。'],
+['mode_course_t','Toàn bộ người tham gia','All participants','全部參加人員'],
+['mode_course_d','Học viên trong danh sách đều quét mặt để vào.','Everyone on the list can scan their face to enter.','名單內的人員皆可刷臉進入。'],
+['btn_confirm','Xác nhận đặt phòng','Confirm booking','確認預約'],['btn_request','Gửi đăng ký chờ duyệt','Submit for approval','送出並等待審核'],
+['h_mine','Lịch của tôi','My bookings','我的預約'],['today','Hôm nay','Today','今天'],
+['none_upcoming','Chưa có lịch sắp tới.','No upcoming bookings.','目前沒有即將到來的預約。'],
+['cancel','Hủy','Cancel','取消'],
+['st_confirmed','Đã xác nhận','Confirmed','已確認'],['st_pending','Chờ duyệt','Pending','待審核'],
+['st_rejected','Bị từ chối','Rejected','已拒絕'],['st_cancelled','Đã hủy','Cancelled','已取消'],
+['admin_pending_h','Chờ duyệt (quản trị)','Awaiting approval (admin)','待審核（管理員）'],
+['admin_none','Không có yêu cầu nào đang chờ.','No pending requests.','沒有待審核的申請。'],
+['approve','Duyệt','Approve','核准'],['reject','Từ chối','Reject','拒絕'],
+['tag_ai','AI Smart','AI Smart','AI Smart'],['tag_approval','Cần duyệt','Needs approval','需審核'],
+['seats','{n} chỗ','{n} seats','{n} 人座'],
+['st_free','Còn trống','Available','可預約'],['st_busy','Đã có lịch','Booked','已被預約'],['st_cap','Tối đa {n} người','Max {n} people','最多 {n} 人'],
+['k_small','Phòng họp nhỏ','Small meeting room','小型會議室'],['k_medium','Phòng họp vừa','Medium meeting room','中型會議室'],
+['k_ai_a','AI Smart Classroom A','AI Smart Classroom A','AI Smart Classroom A'],['k_ai_b','AI Smart Classroom B','AI Smart Classroom B','AI Smart Classroom B'],
+['k_train','Phòng đào tạo','Training room','訓練教室'],['k_workshop','Phòng workshop','Workshop room','工作坊教室'],['k_discuss','Phòng thảo luận','Discussion room','討論室'],
+['sum_pick','Chọn một phòng trong danh sách bên trái.','Pick a room from the list on the left.','請從左側清單選擇會議室。'],
+['msg_busy','Phòng này đã có lịch trong khung giờ đã chọn.','This room is already booked for the selected time.','此時段該會議室已被預約。'],
+['msg_cap','Phòng chỉ chứa tối đa {cap} người, hiện có {n} người.','This room holds {cap} people at most; you have {n}.','此會議室最多容納 {cap} 人，目前為 {n} 人。'],
+['msg_need_approval','Phòng này cần quản trị duyệt trước khi xác nhận.','This room needs admin approval before it is confirmed.','此會議室需管理員審核後才會確認。'],
+['no_result','Không tìm thấy người phù hợp.','No matching people.','找不到符合的人員。'],
+['remove','Bỏ {name}','Remove {name}','移除 {name}'],
+['toast_busy','{room} đã có lịch trong khung giờ này.','{room} is already booked at this time.','{room} 此時段已被預約。'],
+['toast_cap','{room} chỉ chứa tối đa {n} người.','{room} holds {n} people at most.','{room} 最多容納 {n} 人。'],
+['toast_sent','Đã gửi đăng ký {room}, đang chờ quản trị duyệt.','Request for {room} sent. Waiting for admin approval.','已送出 {room} 的申請，等待管理員審核。'],
+['toast_booked','Đã đặt {room} {time}.','{room} booked for {time}.','已預約 {room}　{time}。'],
+['toast_cancelled','Đã hủy lịch.','Booking cancelled.','已取消預約。'],
+['toast_approved','Đã duyệt. Người đặt sẽ được mở cửa theo lịch.','Approved. The booker can unlock the door at the booked time.','已核准，預約人可於預約時段開門。'],
+['toast_rejected','Đã từ chối yêu cầu.','Request rejected.','已拒絕申請。'],
+['toast_cam_fail','Không bật được camera. Tiếp tục dùng chế độ mô phỏng.','Could not start the camera. Continuing in simulation mode.','無法開啟相機，改用模擬模式。'],
+['toast_csv','Đã xuất file CSV.','CSV exported.','已匯出 CSV。'],['toast_csv_fail','Trình duyệt này chặn tải file.','This browser blocked the download.','此瀏覽器封鎖了下載。'],
+/* door */
+['door_h','Mô phỏng quét khuôn mặt','Face scan simulation','人臉辨識模擬'],
+['d_room','Cửa phòng','Room door','會議室門'],['d_person','Người đứng trước cửa','Person at the door','站在門前的人員'],
+['d_cam_t','Dùng camera thật của máy','Use this device\'s camera','使用本機相機'],
+['d_cam_d','Chỉ để hiển thị hình ảnh. Kết quả nhận diện vẫn theo người bạn chọn ở trên.','Display only. The result still follows the person selected above.','僅用於顯示畫面，辨識結果仍依上方所選人員。'],
+['d_scan','Quét khuôn mặt','Scan face','掃描人臉'],
+['d_today_h','Lịch hôm nay của phòng này','Today\'s schedule for this room','此會議室今日預約'],
+['d_log_h','Sự kiện gần đây tại cửa','Recent door events','門禁近期紀錄'],
+['lock_closed','Khóa từ đang khóa','Magnetic lock engaged','電磁鎖已上鎖'],['lock_open','Khóa từ đã mở','Magnetic lock released','電磁鎖已解鎖'],
+['t_ready','Sẵn sàng','Ready','就緒'],
+['t_ready_sub','Đứng trước thiết bị và nhìn thẳng vào camera','Stand in front of the device and look at the camera','請站在裝置前並正視鏡頭'],
+['t_scanning','Đang nhận diện...','Recognizing...','辨識中...'],['t_scanning_sub','Giữ nguyên vị trí','Hold still','請保持不動'],
+['t_hello','Xin chào, {name}','Hello, {name}','您好，{name}'],
+['t_open_sub','{name} · Cửa đang mở','{name} · Door open','{name} · 門已開啟'],
+['stranger_opt','Người lạ (chưa đăng ký)','Stranger (not enrolled)','陌生人（未登錄）'],
+['no_face_suffix',' (chưa đăng ký khuôn mặt)',' (face not enrolled)','（未登錄人臉）'],
+['no_booking_today','Phòng chưa có lịch hôm nay.','No bookings for this room today.','此會議室今日沒有預約。'],
+['no_events','Chưa có sự kiện.','No events yet.','尚無紀錄。'],
+['who_course','{n} người được vào','{n} people allowed','允許 {n} 人進入'],['who_owner','Chỉ người đặt phòng','Booker only','僅限預約人'],
+['pill_open','Đã mở','Opened','已開門'],['pill_deny','Từ chối','Denied','已拒絕'],
+['r_noface','Khuôn mặt chưa đăng ký','Face not enrolled','人臉未登錄'],
+['r_noface_sub','Liên hệ quản trị để đăng ký khuôn mặt.','Contact an admin to enroll your face.','請聯絡管理員登錄人臉。'],
+['r_admin_note','Quyền quản trị, mở mọi phòng','Admin access, all rooms','管理員權限，可開啟所有會議室'],
+['n_match','Khớp lịch đặt phòng {time}','Matches booking {time}','符合預約 {time}'],
+['r_noperm','Không có quyền vào phòng','No permission to enter','無進入權限'],
+['r_noperm_owner','Phòng chỉ dành cho người đặt lịch.','Only the booker may enter.','僅預約人可進入。'],
+['r_noperm_list','Bạn không có trong danh sách tham gia.','You are not on the participant list.','您不在參加人員名單中。'],
+['r_early','Chưa đến giờ','Too early','尚未到時間'],
+['r_early_sub','Cửa mở trước giờ bắt đầu 10 phút ({time}).','The door opens 10 minutes before the start ({time}).','開始前 10 分鐘開放（{time}）。'],
+['r_nobook','Không có lịch đặt phòng','No booking','沒有預約'],
+['r_nobook_sub','Không có lịch tại thời điểm này.','No booking at this time.','此時間沒有預約。'],
+['n_book','{time} · {title}','{time} · {title}','{time} · {title}'],
+['n_cancel','Hủy lịch {time}','Cancelled booking {time}','取消預約 {time}'],
+['n_approve','Duyệt lịch của {name}','Approved {name}\'s booking','核准 {name} 的預約'],
+['n_reject','Từ chối lịch của {name}','Rejected {name}\'s booking','拒絕 {name} 的預約'],
+/* history */
+['ty_book','Đặt phòng','Booking','預約'],['ty_approve','Duyệt lịch','Approval','審核'],['ty_open','Mở cửa','Door unlocked','開門'],['ty_deny','Từ chối','Denied','拒絕'],
+['stranger','Người lạ','Stranger','陌生人'],
+['h_title','Nhật ký sử dụng phòng','Room usage log','會議室使用紀錄'],
+['all_rooms','Tất cả phòng','All rooms','所有會議室'],['all_people','Tất cả mọi người','Everyone','所有人員'],['all_events','Tất cả sự kiện','All events','所有事件'],
+['csv','Xuất CSV','Export CSV','匯出 CSV'],
+['th_time','Thời gian','Time','時間'],['th_room','Phòng','Room','會議室'],['th_person','Người','Person','人員'],['th_event','Sự kiện','Event','事件'],['th_note','Ghi chú','Note','備註'],
+['no_events_filter','Không có sự kiện phù hợp với bộ lọc.','No events match the filters.','沒有符合篩選條件的事件。'],
+['showing_n','Hiển thị {n} trong {total} sự kiện mới nhất.','Showing the latest {n} of {total} events.','顯示最新 {n} 筆，共 {total} 筆。'],
+['usage7_h','Giờ sử dụng 7 ngày qua','Hours used, last 7 days','近 7 天使用時數'],
+['usage_note','Tính theo các lịch đã xác nhận.','Based on confirmed bookings.','依已確認的預約計算。'],
+['stat_opens','Lượt mở cửa hôm nay','Door unlocks today','今日開門次數'],['stat_denies','Lượt bị từ chối hôm nay','Denied attempts today','今日拒絕次數'],
+['stat_conf','Lịch đã xác nhận hôm nay','Confirmed bookings today','今日已確認預約'],['stat_pending','Đang chờ duyệt','Awaiting approval','待審核'],
+/* dashboard */
+['pdf_btn','Xuất PDF','Export PDF','匯出 PDF'],
+['xlsx_btn','Xuất Excel','Export Excel','匯出 Excel'],
+['pdf_hint','Chọn "Lưu dạng PDF" trong hộp thoại in.','Choose "Save as PDF" in the print dialog.','請在列印視窗選擇「另存為 PDF」。'],
+['toast_print_fail','Trình duyệt này chặn in. Hãy mở file bằng Chrome hoặc Edge.','This browser blocked printing. Open the file in Chrome or Edge.','此瀏覽器封鎖了列印，請改用 Chrome 或 Edge 開啟。'],
+['toast_xlsx','Đã xuất file Excel.','Excel file exported.','已匯出 Excel 檔。'],
+['rpt_title','Báo cáo sử dụng phòng học và phòng họp','Classroom and meeting room usage report','教室與會議室使用報告'],
+['rpt_sub','Liteon · {period} · Tối đa {cap} giờ mỗi phòng mỗi tháng · Ngày xuất {date}','Liteon · {period} · Max {cap} h per room per month · Exported {date}','Liteon · {period} · 每間每月最大 {cap} 小時 · 匯出日期 {date}'],
+['sheet_hist','Lịch sử sử dụng','Usage history','使用紀錄'],
+['th_dept','Phòng ban','Department','部門'],
+['tab_manage','Quản lý lịch','Manage bookings','預約管理'],
+['mg_title','Quản lý lịch đăng ký','Booking management','預約管理'],
+['mg_sub','Quản trị viên có thể sửa hoặc xóa mọi lịch đăng ký.','Admins can edit or delete any booking.','管理員可修改或刪除所有預約。'],
+['mg_scope','Phạm vi','Scope','範圍'],['mg_upcoming','Từ hôm nay trở đi','From today onward','今天起'],['mg_past','Đã qua','Past','已過'],['mg_all','Tất cả','All','全部'],
+['mg_search_l','Tìm kiếm','Search','搜尋'],['mg_search','Tìm theo nội dung hoặc người đặt','Search by title or booker','依主題或預約人搜尋'],
+['all_status','Tất cả trạng thái','All statuses','所有狀態'],
+['th_slot','Giờ','Time','時段'],['th_owner','Người đặt phòng','Booked by','預約人'],['th_parts','Số người','People','人數'],
+['th_status','Trạng thái','Status','狀態'],['th_actions','Thao tác','Actions','操作'],
+['edit','Sửa','Edit','修改'],['delete','Xóa','Delete','刪除'],
+['mg_none','Không có lịch nào phù hợp.','No matching bookings.','沒有符合的預約。'],
+['mg_count','Hiển thị {n} trong {total} lịch.','Showing {n} of {total} bookings.','顯示 {n} 筆，共 {total} 筆。'],
+['ed_title','Sửa lịch đăng ký','Edit booking','修改預約'],['ed_save','Lưu thay đổi','Save changes','儲存變更'],['ed_cancel','Đóng','Close','關閉'],
+['ed_err_date','Vui lòng chọn ngày.','Please choose a date.','請選擇日期。'],
+['ed_err_time','Giờ kết thúc phải sau giờ bắt đầu.','End time must be after start time.','結束時間必須晚於開始時間。'],
+['ed_err_conflict','{room} đã có lịch khác trong khung giờ này ({time}).','{room} already has another booking in this slot ({time}).','{room} 在此時段已有其他預約（{time}）。'],
+['ed_err_cap','{room} chỉ chứa tối đa {cap} người, hiện chọn {n} người.','{room} holds {cap} people at most; {n} selected.','{room} 最多容納 {cap} 人，目前選了 {n} 人。'],
+['del_title','Xóa lịch đăng ký?','Delete this booking?','刪除此預約？'],
+['del_body','Lịch {room} {time} ngày {date} của {name} sẽ bị xóa và không còn được tính trong Dashboard.','The {room} booking on {date} at {time} by {name} will be deleted and no longer counted in the Dashboard.','{name} 於 {date} {time} 預約的 {room} 將被刪除，並不再計入儀表板。'],
+['del_confirm','Xóa lịch','Delete booking','刪除預約'],
+['toast_edited','Đã cập nhật lịch.','Booking updated.','已更新預約。'],['toast_deleted','Đã xóa lịch.','Booking deleted.','已刪除預約。'],
+['toast_admin_mode','Chế độ quản trị: có thêm tab Quản lý lịch và Dashboard.','Admin mode: Manage bookings and Dashboard tabs are now available.','管理員模式：新增「預約管理」與「儀表板」分頁。'],
+['n_edit','Sửa lịch {room} {time} ngày {date}','Edited booking {room} {time} on {date}','修改預約 {room} {time}（{date}）'],
+['n_delete','Xóa lịch {room} {time} ngày {date} của {name}','Deleted {name}\'s booking {room} {time} on {date}','刪除 {name} 的預約 {room} {time}（{date}）'],
+['ty_edit','Sửa lịch','Booking edited','修改預約'],['ty_delete','Xóa lịch','Booking deleted','刪除預約'],
+['dash_period','Khoảng thời gian','Period','期間'],['dash_p30','30 ngày qua','Last 30 days','近 30 天'],['dash_p7','7 ngày qua','Last 7 days','近 7 天'],
+['dash_cap','Giờ tối đa mỗi phòng mỗi tháng','Max hours per room per month','每間會議室每月最大時數'],
+['dash_cap_note','Ví dụ 160 giờ = 20 ngày × 8 giờ. Tỉ lệ lấp đầy = giờ đã dùng ÷ giờ tối đa. Chỉ tính các lịch đã diễn ra.','Example: 160 h = 20 days × 8 h. Occupancy = hours used ÷ max hours. Only completed bookings count.','例：160 小時 = 20 天 × 8 小時。使用率 = 已使用時數 ÷ 最大時數，僅計算已結束的預約。'],
+['k_occ','Tỉ lệ lấp đầy trung bình','Average occupancy','平均使用率'],['k_hours','Tổng giờ đã đặt','Total hours booked','總預約時數'],
+['k_sessions','Lượt đặt đã diễn ra','Completed bookings','已結束的預約數'],['k_noshow','Tỉ lệ đặt nhưng không đến','No-show rate','預約未到率'],
+['k_attend','Tỉ lệ có mặt (lớp đào tạo)','Attendance (training)','出席率（訓練課程）'],
+['c_util_h','Lấp đầy theo phòng','Occupancy by room','各會議室使用率'],
+['c_util_sub','Giờ đã dùng so với giờ tối đa của mỗi phòng','Hours used against each room\'s maximum','已使用時數對照各會議室最大時數'],
+['lg_low','Dưới 20%','Below 20%','低於 20%'],['lg_mid','20% đến 70%','20% to 70%','20% 至 70%'],['lg_high','Từ 70%','70% and above','70% 以上'],
+['c_trend_h','Giờ sử dụng theo ngày','Hours booked per day','每日預約時數'],
+['c_trend_avg','Trung bình {n} giờ mỗi ngày làm việc (tất cả phòng)','Average {n} h per working day (all rooms)','平均每個工作日 {n} 小時（所有會議室）'],
+['c_heat_h','Giờ cao điểm trong tuần','Weekly peak hours','每週尖峰時段'],
+['c_heat_note','Tỉ lệ phòng đang có người dùng theo từng giờ. Màu đậm là đông.','Share of rooms in use by hour. Darker means busier.','各時段使用中的會議室比例，顏色越深越忙。'],
+['wd1','Thứ 2','Mon','週一'],['wd2','Thứ 3','Tue','週二'],['wd3','Thứ 4','Wed','週三'],['wd4','Thứ 5','Thu','週四'],['wd5','Thứ 6','Fri','週五'],
+['c_top_h','Nhân viên dùng phòng nhiều nhất','Most active users','使用最頻繁的人員'],
+['c_top_sub','Tính theo giờ có quét mặt vào phòng','Hours with a face scan at the door','以刷臉進入的時數計算'],
+['n_sessions','{n} buổi','{n} sessions','{n} 場'],
+['c_ns_h','Đăng ký nhưng không dùng phòng','Booked but not used','預約但未使用'],
+['c_ns_sub','Người đặt phòng không quét mặt vào trong giờ đã đặt','The booker did not scan in during the booked time','預約人在預約時段內未刷臉進入'],
+['th_booked','Đã đặt','Booked','預約'],['th_noshow','Không đến','No-show','未到'],['th_wasted','Giờ bỏ phí','Wasted h','浪費時數'],
+['none_noshow','Chưa có trường hợp nào.','No cases yet.','目前沒有案例。'],
+['c_dept_h','Giờ đặt theo phòng ban','Booked hours by department','各部門預約時數'],
+['c_dept_sub','Theo phòng ban của người đặt phòng','By the booker\'s department','依預約人所屬部門'],
+['c_acc_h','Truy cập cửa','Door access','門禁概況'],['c_acc_sub','Các lượt quét mặt trong khoảng thời gian đã chọn','Face scans in the selected period','所選期間內的刷臉紀錄'],
+['acc_ok','Mở cửa thành công','Successful unlocks','成功開門'],['acc_deny','Bị từ chối','Denied','已拒絕'],['acc_rate','Tỉ lệ thành công','Success rate','成功率'],
+['acc_reasons','Lý do bị từ chối','Denial reasons','拒絕原因'],
+/* levels, depts, titles */
+['lv1','Nhân viên','Staff','員工'],['lv2','Trưởng nhóm','Team lead','組長'],['lv3','Quản trị','Admin','管理員'],
+['dp_hr','Nhân sự','HR','人資'],['dp_training','Đào tạo','Training','教育訓練'],['dp_prod','Sản xuất','Production','生產'],['dp_eng','Kỹ thuật','Engineering','工程'],
+['dp_sales','Kinh doanh','Sales','業務'],['dp_rd','R&D','R&D','研發'],['dp_qa','Chất lượng','Quality','品保'],['dp_purch','Mua hàng','Purchasing','採購'],
+['dp_acct','Kế toán','Accounting','會計'],['dp_admin','Hành chính (quản trị)','Administration (admin)','行政（管理員）'],['dp_new','Nhân viên mới','New employee','新進員工'],
+['ttl_default','Cuộc họp','Meeting','會議'],['ttl_onboard','Đào tạo nhân viên mới','New hire onboarding','新進員工訓練'],
+['ttl_progress','Họp tiến độ dây chuyền','Production line progress meeting','產線進度會議'],['ttl_customer_ws','Workshop khách hàng','Customer workshop','客戶工作坊'],
+['ttl_demo_ai','Demo AI Smart Classroom','AI Smart Classroom demo','AI Smart Classroom 展示'],['ttl_design','Review thiết kế','Design review','設計審查'],
+['ttl_iso','Đào tạo ISO','ISO training','ISO 訓練'],['ttl_safety','Đào tạo an toàn lao động','Occupational safety training','職業安全訓練'],
+['ttl_purch','Họp mua hàng','Purchasing meeting','採購會議'],['ttl_internal_ws','Workshop nội bộ','Internal workshop','內部工作坊'],
+['ttl_acct','Họp kế toán','Accounting meeting','會計會議'],['ttl_equip','Thử nghiệm thiết bị','Equipment trial','設備測試'],
+['ttl_soft','Đào tạo kỹ năng mềm','Soft skills training','軟技能訓練'],['ttl_qc','Họp chất lượng','Quality meeting','品質會議'],
+['ttl_sales','Họp kinh doanh','Sales meeting','業務會議'],['ttl_tech','Chia sẻ kỹ thuật','Tech sharing session','技術分享會'],['ttl_lang','Lớp ngoại ngữ','Language class','語言課程'],
+];
+const D = {vi:{}, en:{}, zh:{}};
+TR.forEach(r => { D.vi[r[0]]=r[1]; D.en[r[0]]=r[2]; D.zh[r[0]]=r[3]; });
+
+/* =====================  helpers  ===================== */
+const $ = (s, r=document) => r.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const fmt = m => pad(Math.floor(m/60)) + ':' + pad(Math.round(m)%60);
+const iso = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const dayIso = off => { const d=new Date(); d.setDate(d.getDate()+off); return iso(d); };
+const at = (off, min) => { const d=new Date(); d.setDate(d.getDate()+off); d.setHours(Math.floor(min/60), Math.round(min)%60, 0, 0); return d; };
+const minOf = d => d.getHours()*60 + d.getMinutes();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const DAY0 = 420, DAY1 = 1140;
+const pct = m => Math.max(0, Math.min(100, (m-DAY0)/(DAY1-DAY0)*100));
+const tsFmt = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+const S = {
+  lang:'vi', me:'p1', clock:595, date:dayIso(0), start:600, end:660,
+  roomSel:null, parts:['p1'], mode:'registered', title:'',
+  bookings:[], logs:[], seq:1000, dashDays:30, cap:160,
+  term:{state:'idle', msg:'t_ready', sub:'t_ready_sub', a:{}}, doorOpen:false
+};
+function t(k, a){
+  let s = (D[S.lang] && D[S.lang][k]) ?? D.vi[k] ?? k;
+  if(a) s = s.replace(/\{(\w+)\}/g, (m,x) => a[x] ?? m);
+  return s;
+}
+const tl = s => (typeof s==='string' && s[0]==='@') ? t(s.slice(1)) : s;       // '@key' = translatable text
+function noteText(n){
+  if(!n) return '';
+  if(n.k==='n_deny') return t(n.a.r) + (n.a.s ? '. ' + t(n.a.s, n.a) : '');
+  const a = {}; for(const k in (n.a||{})) a[k] = tl(n.a[k]);
+  return t(n.k, a);
+}
+
+/* =====================  data  ===================== */
+const ROOMS = [
+  {id:'r101', name:'P.101', kind:'k_small', cap:6},
+  {id:'r102', name:'P.102', kind:'k_small', cap:6},
+  {id:'r103', name:'P.103', kind:'k_medium', cap:12},
+  {id:'r201', name:'P.201', kind:'k_ai_a', cap:30, ai:true, approval:true},
+  {id:'r202', name:'P.202', kind:'k_ai_b', cap:30, ai:true, approval:true},
+  {id:'r203', name:'P.203', kind:'k_train', cap:24},
+  {id:'r204', name:'P.204', kind:'k_train', cap:24},
+  {id:'r301', name:'P.301', kind:'k_workshop', cap:40},
+  {id:'r302', name:'P.302', kind:'k_medium', cap:12},
+  {id:'r303', name:'P.303', kind:'k_discuss', cap:8},
+  {id:'r304', name:'P.304', kind:'k_discuss', cap:8},
+];
+const PEOPLE = [
+  {id:'p1', name:'Trần Minh Khoa', dept:'dp_hr', level:1, face:true},
+  {id:'p2', name:'Lê Thu Hạ', dept:'dp_training', level:2, face:true},
+  {id:'p3', name:'Phạm Quốc Bảo', dept:'dp_prod', level:1, face:true},
+  {id:'p4', name:'Nguyễn Ngọc Anh', dept:'dp_eng', level:1, face:true},
+  {id:'p5', name:'Võ Thanh Tùng', dept:'dp_eng', level:1, face:true},
+  {id:'p6', name:'Đặng Mai Linh', dept:'dp_sales', level:2, face:true},
+  {id:'p7', name:'Chen Wei-Lun', dept:'dp_rd', level:1, face:true},
+  {id:'p8', name:'Lin Yu-Ting', dept:'dp_qa', level:1, face:true},
+  {id:'p9', name:'Hoàng Gia Huy', dept:'dp_purch', level:1, face:true},
+  {id:'p10', name:'Bùi Thảo Vy', dept:'dp_acct', level:1, face:true},
+  {id:'p11', name:'Ngô Đức Thịnh', dept:'dp_admin', level:3, face:true},
+  {id:'p12', name:'Đỗ Khánh Linh', dept:'dp_new', level:1, face:false},
+];
+const person = id => PEOPLE.find(p => p.id === id);
+const room = id => ROOMS.find(r => r.id === id);
+
+/* ---------- seed data ---------- */
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let x=Math.imul(seed^seed>>>15,1|seed); x=x+Math.imul(x^x>>>7,61|x)^x; return ((x^x>>>14)>>>0)/4294967296; }; }
+const overlap = (a1,a2,b1,b2) => a1<b2 && b1<a2;
+
+function seed(){
+  const B = (id, r, off, s, e, owner, parts, title, mode, status) =>
+    S.bookings.push({id, room:r, date:dayIso(off), off, start:s, end:e, owner, participants:parts, title, mode, status});
+  B('b1','r201',0,600,690,'p2',['p2','p3','p4','p5'],'@ttl_onboard','course','confirmed');
+  B('b2','r103',0,540,600,'p3',['p3','p9'],'@ttl_progress','registered','confirmed');
+  B('b3','r301',0,810,990,'p6',['p6','p7','p8','p9','p10'],'@ttl_customer_ws','course','confirmed');
+  B('b4','r202',0,840,930,'p4',['p4','p5','p7'],'@ttl_demo_ai','course','pending');
+  B('b5','r101',0,660,720,'p7',['p7','p8'],'@ttl_design','registered','confirmed');
+  B('b6','r203',0,510,630,'p8',['p8','p3','p9','p10'],'@ttl_iso','course','confirmed');
+  B('b7','r201',-1,540,660,'p2',['p2','p3','p5'],'@ttl_safety','course','confirmed');
+  B('b8','r103',-1,840,900,'p9',['p9','p10'],'@ttl_purch','registered','confirmed');
+  B('b9','r301',-2,480,720,'p6',['p6','p7','p8'],'@ttl_internal_ws','course','confirmed');
+  B('b10','r204',-2,780,900,'p10',['p10','p1'],'@ttl_acct','registered','confirmed');
+  B('b11','r202',-3,600,720,'p4',['p4','p5'],'@ttl_equip','course','confirmed');
+  B('b12','r201',1,540,720,'p2',['p2','p1','p3'],'@ttl_soft','course','confirmed');
+
+  const R = rng(20261023);
+  const pick = a => a[Math.floor(R()*a.length)];
+  const HPD = {r101:1.6,r102:0.8,r103:2.2,r201:5.2,r202:3.4,r203:2.8,r204:2.0,r301:2.4,r302:1.8,r303:1.6,r304:1.0};
+  const OWNERS = ['p2','p2','p2','p6','p6','p4','p3','p3','p5','p7','p8','p9','p9','p10','p1'];
+  const NOSHOW = {p3:.30, p9:.26, p5:.20, p1:.12};
+  const TTL = ['ttl_onboard','ttl_progress','ttl_customer_ws','ttl_design','ttl_iso','ttl_safety','ttl_purch','ttl_internal_ws','ttl_acct','ttl_equip','ttl_soft','ttl_qc','ttl_sales','ttl_tech','ttl_lang'];
+  const POOL = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'];
+  let n = 0;
+  const attended = [];   // collect open logs
+  for(let off=-30; off<=-1; off++){
+    const wd = at(off,0).getDay(); if(wd===0||wd===6) continue;
+    ROOMS.forEach(r => {
+      const target = HPD[r.id]*(0.55+R()*0.9);
+      if(R() > target/1.5) return;
+      let cursor = 480 + Math.floor(R()*3)*30, sum = 0;
+      while(sum < target && cursor < 1050){
+        const dur = pick([60,90,120,180]);
+        if(cursor+dur > 1110) break;
+        const date = dayIso(off);
+        const clash = S.bookings.some(b => b.room===r.id && b.date===date && overlap(cursor,cursor+dur,b.start,b.end));
+        if(!clash){
+          const owner = pick(OWNERS);
+          const maxN = Math.min(r.cap, 10);
+          const cnt = 1 + Math.floor(R()*maxN);
+          const parts = [owner]; POOL.slice().sort(()=>R()-.5).forEach(p => { if(parts.length<cnt && !parts.includes(p)) parts.push(p); });
+          const mode = parts.length>=3 && R()<0.6 ? 'course' : 'registered';
+          const b = {id:'g'+(++n), room:r.id, date, off, start:cursor, end:cursor+dur, owner, participants:parts, title:'@'+pick(TTL), mode, status:'confirmed'};
+          S.bookings.push(b);
+          if(R() >= (NOSHOW[owner] ?? 0.07)){
+            const note = {k:'n_match', a:{time:`${fmt(b.start)}-${fmt(b.end)}`}};
+            attended.push({t:at(off, b.start-Math.floor(R()*9)), room:r.id, person:owner, type:'open', note});
+            if(mode==='course') parts.forEach(p => { if(p!==owner && R()<0.82) attended.push({t:at(off, b.start-6+Math.floor(R()*18)), room:r.id, person:p, type:'open', note}); });
+            else if(R()<0.15) {}
+          }
+          sum += dur/60;
+        }
+        cursor += dur + pick([0,30,60,90]);
+      }
+    });
+  }
+  // attended entries for hand-written past bookings
+  S.bookings.filter(b => b.off<0 && !b.id.startsWith('g')).forEach(b => {
+    const note = {k:'n_match', a:{time:`${fmt(b.start)}-${fmt(b.end)}`}};
+    attended.push({t:at(b.off, b.start-4), room:b.room, person:b.owner, type:'open', note});
+    if(b.mode==='course') b.participants.slice(1).forEach(p => attended.push({t:at(b.off, b.start+2), room:b.room, person:p, type:'open', note}));
+  });
+  S.logs.push(...attended);
+  // booking + approval logs
+  S.bookings.forEach(b => {
+    const t0 = at(Math.min(b.off,0)-1, 16*60);
+    S.logs.push({t:t0, room:b.room, person:b.owner, type:'book', note:{k:'n_book', a:{time:`${fmt(b.start)}-${fmt(b.end)}`, title:b.title}}});
+    if(room(b.room).approval && b.status==='confirmed')
+      S.logs.push({t:new Date(t0.getTime()+3600e3), room:b.room, person:'p11', type:'approve', note:{k:'n_approve', a:{name:person(b.owner).name}}});
+  });
+  // denied attempts
+  for(let i=0;i<26;i++){
+    const off = -1-Math.floor(R()*29); const wd=at(off,0).getDay(); if(wd===0||wd===6) continue;
+    const r = pick(ROOMS).id, m = 480+Math.floor(R()*600), kind = R();
+    let who=null, a;
+    if(kind<0.35){ who=null; a={r:'r_noface', s:'r_noface_sub'}; }
+    else if(kind<0.5){ who='p12'; a={r:'r_noface', s:'r_noface_sub'}; }
+    else if(kind<0.8){ who=pick(POOL); a={r:'r_nobook', s:'r_nobook_sub'}; }
+    else { who=pick(POOL); a={r:'r_early', s:'r_early_sub', time:fmt(m+25)}; }
+    S.logs.push({t:at(off,m), room:r, person:who, type:'deny', note:{k:'n_deny', a}});
+  }
+  // today
+  const L = (m,r,p,time) => S.logs.push({t:at(0,m), room:r, person:p, type:'open', note:{k:'n_match', a:{time}}});
+  L(505,'r203','p8','08:30-10:30'); L(508,'r203','p3','08:30-10:30'); L(535,'r103','p3','09:00-10:00');
+}
+
+/* =====================  static text + selects  ===================== */
+function applyStatic(){
+  document.querySelectorAll('[data-i18n]').forEach(e => e.textContent = t(e.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(e => e.placeholder = t(e.dataset.i18nPh));
+  document.title = t('app_title') + ' (prototype)';
+  document.documentElement.lang = {vi:'vi', en:'en', zh:'zh-Hant'}[S.lang];
+}
+function buildSelects(){
+  const keep = {};
+  const IDS = ['d-room','d-person','h-room','h-person','h-type','m-scope','m-room','m-status'];
+  IDS.forEach(id => keep[id] = $('#'+id).value);
+  $('#d-room').innerHTML = ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${esc(t(r.kind))}</option>`).join('');
+  $('#d-person').innerHTML = `<option value="">${esc(t('stranger_opt'))}</option>` + PEOPLE.map(p=>`<option value="${p.id}">${esc(p.name)}${p.face?'':esc(t('no_face_suffix'))} · ${t('lv'+p.level)}</option>`).join('');
+  $('#h-room').innerHTML = `<option value="">${t('all_rooms')}</option>` + ROOMS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  $('#h-person').innerHTML = `<option value="">${t('all_people')}</option><option value="stranger">${t('stranger')}</option>` + PEOPLE.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#h-type').innerHTML = `<option value="">${t('all_events')}</option>` + Object.entries(TYPES).map(([k,v])=>`<option value="${k}">${t(v[1])}</option>`).join('');
+  $('#m-scope').innerHTML = `<option value="upcoming">${t('mg_upcoming')}</option><option value="past">${t('mg_past')}</option><option value="all">${t('mg_all')}</option>`;
+  $('#m-room').innerHTML = `<option value="">${t('all_rooms')}</option>` + ROOMS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  $('#m-status').innerHTML = `<option value="">${t('all_status')}</option>` + Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${t(v[1])}</option>`).join('');
+  $('#ed-room').innerHTML = ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${esc(t(r.kind))}</option>`).join('');
+  $('#ed-owner').innerHTML = PEOPLE.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#ed-status').innerHTML = Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${t(v[1])}</option>`).join('');
+  $('#ed-mode').innerHTML = `<option value="registered">${t('mode_reg_t')}</option><option value="course">${t('mode_course_t')}</option>`;
+  IDS.forEach(id => { if(keep[id] !== undefined) $('#'+id).value = keep[id]; });
+  if(!$('#m-scope').value) $('#m-scope').value = 'upcoming';
+}
+function setLang(l){
+  S.lang = l;
+  ['vi','en','zh'].forEach(x => $('#lang-'+x).setAttribute('aria-pressed', x===l));
+  applyStatic(); buildSelects(); renderAll();
+}
+
+/* =====================  booking  ===================== */
+const active = b => b.status==='confirmed' || b.status==='pending';
+const dayBookings = (rid,date) => S.bookings.filter(b => b.room===rid && b.date===date && active(b));
+const conflicts = (rid,date,s,e) => dayBookings(rid,date).filter(b => overlap(s,e,b.start,b.end));
+function roomStatus(r){
+  if(conflicts(r.id,S.date,S.start,S.end).length) return {k:'busy', t:t('st_busy'), ok:false};
+  if(S.parts.length > r.cap) return {k:'cap', t:t('st_cap',{n:r.cap}), ok:false};
+  return {k:'free', t:t('st_free'), ok:true};
+}
+function buildTimeSelects(){
+  const mk = (from,to) => { let h=''; for(let m=from;m<=to;m+=30) h+=`<option value="${m}">${fmt(m)}</option>`; return h; };
+  $('#f-start').innerHTML = mk(DAY0, DAY1-30);
+  $('#f-end').innerHTML = mk(DAY0+30, DAY1);
+  $('#f-date').value = S.date; $('#f-date').min = dayIso(0);
+  $('#f-start').value = S.start; $('#f-end').value = S.end;
+  $('#ed-start').innerHTML = mk(DAY0, DAY1-30); $('#ed-end').innerHTML = mk(DAY0+30, DAY1);
+  let ax=''; for(let h=8; h<=18; h+=2) ax += `<span style="left:${pct(h*60)}%">${h}h</span>`;
+  $('#axis').innerHTML = ax;
+}
+function renderRooms(){
+  $('#rooms').innerHTML = ROOMS.map(r => {
+    const st = roomStatus(r), sel = S.roomSel === r.id;
+    const blocks = dayBookings(r.id,S.date).map(b =>
+      `<div class="blk ${b.status==='pending'?'pending':''}" style="left:${pct(b.start)}%;width:${pct(b.end)-pct(b.start)}%" title="${fmt(b.start)}-${fmt(b.end)} · ${esc(tl(b.title))} (${esc(person(b.owner).name)})"></div>`).join('');
+    const win = `<div class="win" style="left:${pct(S.start)}%;width:${pct(S.end)-pct(S.start)}%"></div>`;
+    const now = S.date===dayIso(0) ? `<div class="now" style="left:${pct(S.clock)}%"></div>` : '';
+    return `<button class="row ${sel?'sel':''}" data-room="${r.id}" aria-disabled="${!st.ok}" aria-pressed="${sel}">
+      <div><div class="rname">${r.name} · ${t('seats',{n:r.cap})}</div><div class="rmeta">${esc(t(r.kind))}</div>
+        ${r.ai?`<span class="tag">${t('tag_ai')}</span>`:''}${r.approval?`<span class="tag warn">${t('tag_approval')}</span>`:''}</div>
+      <div class="track">${blocks}${win}${now}</div>
+      <div class="state ${st.k}">${st.t}</div></button>`;
+  }).join('');
+}
+function renderSummary(){
+  const r = S.roomSel ? room(S.roomSel) : null;
+  $('#sum-room').innerHTML = r
+    ? `<b>${r.name}</b> · ${esc(t(r.kind))} · ${fmt(S.start)}-${fmt(S.end)}, ${S.date.split('-').reverse().join('/')}`
+    : t('sum_pick');
+  $('#pcount').textContent = `(${S.parts.length}${r?'/'+r.cap:''})`;
+  $('#chips').innerHTML = S.parts.map(id => {
+    const p = person(id);
+    return `<span class="chip">${esc(p.name)}${id===S.me?'':`<button data-rm="${id}" aria-label="${esc(t('remove',{name:p.name}))}">&times;</button>`}</span>`;
+  }).join('');
+  let msg='', ok=true;
+  if(!r) ok=false;
+  else { const st = roomStatus(r); if(!st.ok){ ok=false; msg = st.k==='busy' ? t('msg_busy') : t('msg_cap',{cap:r.cap, n:S.parts.length}); } }
+  if(r && ok && r.approval) msg = t('msg_need_approval');
+  const m = $('#msg'); m.textContent = msg; m.className = 'note' + (r && !ok ? ' bad' : '');
+  $('#btn-book').disabled = !ok;
+  $('#btn-book').textContent = r && r.approval ? t('btn_request') : t('btn_confirm');
+}
+function renderResults(){
+  const q = $('#f-search').value.trim().toLowerCase(), box = $('#results');
+  if(!q){ box.classList.remove('on'); box.innerHTML=''; return; }
+  const list = PEOPLE.filter(p => !S.parts.includes(p.id) && (p.name.toLowerCase().includes(q) || t(p.dept).toLowerCase().includes(q)));
+  box.classList.add('on');
+  box.innerHTML = list.length
+    ? list.map(p => `<button data-add="${p.id}"><span>${esc(p.name)}</span><span class="muted small">${esc(t(p.dept))}</span></button>`).join('')
+    : `<div class="note" style="padding:8px 10px;margin:0">${t('no_result')}</div>`;
+}
+const STATUS = {confirmed:['ok','st_confirmed'], pending:['warn','st_pending'], rejected:['bad','st_rejected'], cancelled:['gray','st_cancelled']};
+function renderMine(){
+  const today = dayIso(0);
+  const mine = S.bookings.filter(b => (b.owner===S.me || b.participants.includes(S.me)) && b.date>=today && b.status!=='cancelled')
+    .sort((a,b)=> (a.date+fmt(a.start)).localeCompare(b.date+fmt(b.start)));
+  $('#mine').innerHTML = mine.length ? mine.map(b => {
+    const [c,k] = STATUS[b.status];
+    return `<div class="item"><div><b>${room(b.room).name}</b> · ${fmt(b.start)}-${fmt(b.end)} <span class="muted small">${b.date===today?t('today'):b.date.split('-').reverse().slice(0,2).join('/')}</span><br>
+      <span class="muted small">${esc(tl(b.title))}</span></div>
+      <div style="text-align:right"><span class="pill ${c}">${t(k)}</span>${b.owner===S.me&&b.status!=='rejected'?`<br><button class="btn ghost sm" data-cancel="${b.id}" style="margin-top:4px">${t('cancel')}</button>`:''}</div></div>`;
+  }).join('') : `<p class="note">${t('none_upcoming')}</p>`;
+  const adm = $('#admin-box');
+  if(person(S.me).level===3){
+    const pend = S.bookings.filter(b => b.status==='pending');
+    adm.innerHTML = `<h3>${t('admin_pending_h')}</h3>` + (pend.length ? pend.map(b =>
+      `<div class="item"><div><b>${room(b.room).name}</b> · ${fmt(b.start)}-${fmt(b.end)}<br><span class="muted small">${esc(person(b.owner).name)} · ${esc(tl(b.title))}</span></div>
+       <div><button class="btn sm" data-approve="${b.id}">${t('approve')}</button> <button class="btn ghost sm" data-reject="${b.id}">${t('reject')}</button></div></div>`).join('')
+      : `<p class="note">${t('admin_none')}</p>`);
+  } else adm.innerHTML = '';
+}
+function updateBook(){ renderRooms(); renderSummary(); renderMine(); }
+function submitBooking(){
+  const r = room(S.roomSel); if(!r || !roomStatus(r).ok) return;
+  const b = {id:'b'+(++S.seq), room:r.id, date:S.date, off:0, start:S.start, end:S.end, owner:S.me,
+    participants:[...S.parts], title:S.title.trim() || '@ttl_default', mode:S.mode, status:r.approval?'pending':'confirmed'};
+  S.bookings.push(b);
+  S.logs.push({t:new Date(), room:r.id, person:S.me, type:'book', note:{k:'n_book', a:{time:`${fmt(b.start)}-${fmt(b.end)}`, title:b.title}}});
+  toast(r.approval ? t('toast_sent',{room:r.name}) : t('toast_booked',{room:r.name, time:`${fmt(b.start)}-${fmt(b.end)}`}));
+  S.roomSel = null; S.parts=[S.me]; S.title=''; $('#f-title').value=''; $('#f-search').value=''; renderResults();
+  renderAll();
+}
+
+/* =====================  door  ===================== */
+function decide(rid, pid){
+  const p = pid ? person(pid) : null;
+  if(!p || !p.face) return {ok:false, who:p?p.name:t('stranger'), r:'r_noface', s:'r_noface_sub'};
+  if(p.level===3) return {ok:true, who:p.name, note:{k:'r_admin_note', a:{}}};
+  const today = dayIso(0), now = S.clock;
+  const list = S.bookings.filter(b => b.room===rid && b.date===today && b.status==='confirmed');
+  const live = list.filter(b => now >= b.start-10 && now < b.end);
+  for(const b of live){
+    if(b.owner===p.id || (b.mode==='course' && b.participants.includes(p.id)))
+      return {ok:true, who:p.name, note:{k:'n_match', a:{time:`${fmt(b.start)}-${fmt(b.end)}`}}};
+  }
+  if(live.length) return {ok:false, who:p.name, r:'r_noperm', s: live[0].mode==='registered' ? 'r_noperm_owner' : 'r_noperm_list'};
+  const next = list.filter(b => b.start-10 > now).sort((a,b)=>a.start-b.start)[0];
+  return next ? {ok:false, who:p.name, r:'r_early', s:'r_early_sub', time:fmt(next.start)} : {ok:false, who:p.name, r:'r_nobook', s:'r_nobook_sub'};
+}
+let scanTok = 0, camStream = null;
+function setTerm(state, msg, sub, a){ S.term = {state, msg, sub, a:a||{}}; renderTerm(); }
+function renderTerm(){
+  const x = S.term;
+  $('#terminal').dataset.state = x.state;
+  $('#t-msg').textContent = t(x.msg, x.a); $('#t-sub').textContent = x.sub ? t(x.sub, x.a) : '';
+  $('#leaf').classList.toggle('open', S.doorOpen);
+  $('#lockcap').textContent = t(S.doorOpen ? 'lock_open' : 'lock_closed');
+}
+async function scan(){
+  const tok = ++scanTok;
+  const rid = $('#d-room').value, pid = $('#d-person').value || null;
+  S.doorOpen = false; $('#d-scan').disabled = true;
+  setTerm('scan','t_scanning','t_scanning_sub');
+  await sleep(1700);
+  if(tok !== scanTok) return;
+  const r = decide(rid, pid);
+  S.logs.push({t:at(0,S.clock), room:rid, person:pid, type:r.ok?'open':'deny', note: r.ok ? r.note : {k:'n_deny', a:{r:r.r, s:r.s, time:r.time}}});
+  if(r.ok){ S.doorOpen = true; S.term = {state:'ok', msg:'t_hello', sub:'t_open_sub', a:{name:r.who}}; }
+  else    { S.term = {state:'deny', msg:r.r, sub:r.s, a:{time:r.time}}; }
+  renderTerm(); renderDoorSide(); renderHist(); renderDash();
+  $('#d-scan').disabled = false;
+  await sleep(4500);
+  if(tok === scanTok){ S.doorOpen = false; setTerm('idle','t_ready','t_ready_sub'); }
+}
+async function toggleCam(on){
+  if(!on){ stopCam(); return; }
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({video:true});
+    $('#t-video').srcObject = camStream; $('#t-video').style.display='block'; $('#t-sil').style.display='none';
+  }catch(e){ $('#d-cam').checked = false; stopCam(); toast(t('toast_cam_fail')); }
+}
+function stopCam(){
+  if(camStream){ camStream.getTracks().forEach(x=>x.stop()); camStream=null; }
+  $('#t-video').style.display='none'; $('#t-video').srcObject=null; $('#t-sil').style.display='block';
+}
+function renderDoorSide(){
+  const rid = $('#d-room').value, r = room(rid);
+  $('#t-room').textContent = r.name; $('#t-clock').textContent = fmt(S.clock);
+  const list = S.bookings.filter(b => b.room===rid && b.date===dayIso(0) && (b.status==='confirmed'||b.status==='pending')).sort((a,b)=>a.start-b.start);
+  $('#d-today').innerHTML = list.length ? list.map(b => {
+    const [c,k] = STATUS[b.status];
+    const who = b.mode==='course' ? t('who_course',{n:b.participants.length}) : t('who_owner');
+    return `<div class="item"><div><b>${fmt(b.start)}-${fmt(b.end)}</b> · ${esc(person(b.owner).name)}<br><span class="muted small">${who}</span></div><span class="pill ${c}">${t(k)}</span></div>`;
+  }).join('') : `<p class="note">${t('no_booking_today')}</p>`;
+  const lg = S.logs.filter(l => l.room===rid && (l.type==='open'||l.type==='deny')).sort((a,b)=>b.t-a.t).slice(0,5);
+  $('#d-log').innerHTML = lg.length ? lg.map(l =>
+    `<div class="item"><div>${esc(l.person?person(l.person).name:t('stranger'))}<br><span class="muted small">${tsFmt(l.t)} · ${esc(noteText(l.note))}</span></div>
+     <span class="pill ${l.type==='open'?'ok':'bad'}">${t(l.type==='open'?'pill_open':'pill_deny')}</span></div>`).join('') : `<p class="note">${t('no_events')}</p>`;
+  renderTerm();
+}
+
+/* =====================  history  ===================== */
+const TYPES = {book:['info','ty_book'], approve:['warn','ty_approve'], edit:['warn','ty_edit'], delete:['bad','ty_delete'], open:['ok','ty_open'], deny:['bad','ty_deny']};
+function filteredLogs(){
+  const fr=$('#h-room').value, fp=$('#h-person').value, ft=$('#h-type').value;
+  return S.logs.filter(l => (!fr||l.room===fr) && (!ft||l.type===ft) && (!fp || (fp==='stranger' ? !l.person : l.person===fp))).sort((a,b)=>b.t-a.t);
+}
+function renderHist(){
+  const all = filteredLogs(), rows = all.slice(0,150);
+  $('#h-body').innerHTML = rows.length ? rows.map(l => {
+    const [c,k] = TYPES[l.type];
+    return `<tr><td style="white-space:nowrap">${tsFmt(l.t)}</td><td>${room(l.room).name}</td><td>${esc(l.person?person(l.person).name:t('stranger'))}</td><td><span class="pill ${c}">${t(k)}</span></td><td class="muted">${esc(noteText(l.note))}</td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="muted">${t('no_events_filter')}</td></tr>`;
+  $('#h-count').textContent = all.length > rows.length ? t('showing_n',{n:rows.length,total:all.length}) : '';
+
+  const todayStr = new Date().toDateString();
+  const todays = S.logs.filter(l => l.t.toDateString()===todayStr);
+  const opens = todays.filter(l=>l.type==='open').length, denies = todays.filter(l=>l.type==='deny').length;
+  const bk = S.bookings.filter(b => b.date===dayIso(0) && b.status==='confirmed').length;
+  const pend = S.bookings.filter(b => b.status==='pending').length;
+  $('#stats').innerHTML = [['stat_opens',opens],['stat_denies',denies],['stat_conf',bk],['stat_pending',pend]]
+    .map(([l,n]) => `<div class="stat"><b>${n}</b><span class="muted small">${t(l)}</span></div>`).join('');
+
+  const from = dayIso(-6), to = dayIso(0), hrs = {};
+  S.bookings.filter(b => b.status==='confirmed' && b.date>=from && b.date<=to).forEach(b => hrs[b.room]=(hrs[b.room]||0)+(b.end-b.start)/60);
+  const arr = Object.entries(hrs).sort((a,b)=>b[1]-a[1]).slice(0,8), mx = arr.length?arr[0][1]:1;
+  $('#usage').innerHTML = arr.length ? arr.map(([rid,h]) =>
+    `<div class="ubar"><span class="n">${room(rid).name}</span><span class="b"><i style="width:${h/mx*100}%"></i></span><span class="v">${h.toFixed(1)}h</span></div>`).join('') : '';
+}
+function exportCsv(){
+  const q = v => '"'+String(v).replace(/"/g,'""')+'"';
+  const head = ['th_time','th_room','th_person','th_event','th_note'].map(k => q(t(k))).join(',');
+  const lines = [head].concat(filteredLogs().map(l => [tsFmt(l.t), room(l.room).name, l.person?person(l.person).name:t('stranger'), t(TYPES[l.type][1]), noteText(l.note)].map(q).join(',')));
+  try{
+    const blob = new Blob(['\ufeff'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'room-usage-history.csv';
+    document.body.appendChild(a); a.click(); a.remove(); toast(t('toast_csv'));
+  }catch(e){ toast(t('toast_csv_fail')); }
+}
+
+
+/* ---------- PDF (print) ---------- */
+function printDash(){
+  const old = document.title;
+  document.title = 'Liteon-room-report-' + dayIso(0);
+  const back = () => { document.title = old; window.removeEventListener('afterprint', back); };
+  window.addEventListener('afterprint', back);
+  toast(t('pdf_hint'));
+  setTimeout(() => { try{ window.print(); }catch(e){ toast(t('toast_print_fail')); back(); } }, 350);
+}
+
+/* ---------- Excel (.xlsx, no external library) ---------- */
+function crc32(buf){
+  if(!crc32.tb){ crc32.tb = []; for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; crc32.tb[n]=c>>>0; } }
+  let crc = -1; for(let i=0;i<buf.length;i++) crc = crc32.tb[(crc^buf[i])&255]^(crc>>>8);
+  return (crc^-1)>>>0;
+}
+function zipStore(files){
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const u16 = v => [v&255,(v>>8)&255], u32 = v => [v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];
+  files.forEach(f => {
+    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data), size = data.length;
+    const lh = [0x50,0x4b,3,4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0)];
+    parts.push(Uint8Array.from(lh), name, data);
+    cen.push(Uint8Array.from([0x50,0x4b,1,2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), name);
+    off += lh.length + name.length + size;
+  });
+  const cenSize = cen.reduce((s,a)=>s+a.length,0);
+  const end = Uint8Array.from([0x50,0x4b,5,6, 0,0,0,0, ...u16(files.length), ...u16(files.length), ...u32(cenSize), ...u32(off), ...u16(0)]);
+  const all = [...parts, ...cen, end], out = new Uint8Array(all.reduce((s,a)=>s+a.length,0));
+  let p = 0; all.forEach(a => { out.set(a,p); p+=a.length; });
+  return out;
+}
+const xe = v => String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+function exportXlsx(){
+  const logs = filteredLogs();
+  const heads = ['th_time','th_room','th_person','th_dept','th_event','th_note'].map(k => t(k));
+  const cs = (ref, txt, st) => `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t xml:space="preserve">${xe(txt)}</t></is></c>`;
+  const col = i => String.fromCharCode(65+i);
+  let rows = `<row r="1">${heads.map((h,i)=>cs(col(i)+'1',h,1)).join('')}</row>`;
+  logs.forEach((l,i) => {
+    const r = i+2, d = l.t, serial = Math.round(((d.getTime() - d.getTimezoneOffset()*60000)/86400000 + 25569)*1440)/1440;
+    const p = l.person ? person(l.person) : null;
+    rows += `<row r="${r}"><c r="A${r}" s="2"><v>${serial.toFixed(6)}</v></c>${cs('B'+r, room(l.room).name)}${cs('C'+r, p?p.name:t('stranger'))}${cs('D'+r, p?t(p.dept):'')}${cs('E'+r, t(TYPES[l.type][1]))}${cs('F'+r, noteText(l.note))}</row>`;
+  });
+  const widths = [18,10,24,22,16,60];
+  const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData><autoFilter ref="A1:F${logs.length+1}"/></worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy\\ hh:mm"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E4FD8"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const sheetName = t('sheet_hist').replace(/[:\\\/?*\[\]]/g,'').slice(0,31);
+  const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const files = [
+    {name:'[Content_Types].xml', text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+    {name:'_rels/.rels', text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:'xl/workbook.xml', text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS} xmlns:r="${R}"><sheets><sheet name="${xe(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+    {name:'xl/_rels/workbook.xml.rels', text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${R}/styles" Target="styles.xml"/></Relationships>`},
+    {name:'xl/styles.xml', text:styles},
+    {name:'xl/worksheets/sheet1.xml', text:sheet},
+  ];
+  try{
+    const blob = new Blob([zipStore(files)], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'room-usage-history-' + dayIso(0) + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); toast(t('toast_xlsx'));
+  }catch(e){ toast(t('toast_csv_fail')); }
+}
+
+/* =====================  dashboard  ===================== */
+function buildOpenIndex(){
+  const idx = {};
+  S.logs.forEach(l => { if(l.type!=='open' || !l.person) return; const k = l.room+'|'+iso(l.t); (idx[k]||(idx[k]=[])).push({p:l.person, m:minOf(l.t)}); });
+  return idx;
+}
+const attendedBy = (idx,b,pid) => (idx[b.room+'|'+b.date]||[]).some(x => x.p===pid && x.m>=b.start-10 && x.m<b.end);
+
+function dashCompute(){
+  const days = S.dashDays, today = dayIso(0), from = dayIso(-(days-1));
+  const capRoom = days===7 ? S.cap/4 : S.cap;
+  const idx = buildOpenIndex();
+  const ended = S.bookings.filter(b => b.status==='confirmed' && b.date>=from && b.date<=today && (b.date<today || b.end<=S.clock));
+  const roomH = {}; ROOMS.forEach(r => roomH[r.id]=0);
+  const users={}, owners={}, dept={}, daily={}, heat={}, wdN={1:0,2:0,3:0,4:0,5:0};
+  const dayList=[];
+  for(let i=days-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const w=d.getDay(); dayList.push({iso:iso(d), wd:w}); daily[iso(d)]=0; if(w>=1&&w<=5) wdN[w]++; }
+  let total=0, nsN=0, nsH=0, cAtt=0, cTot=0;
+  ended.forEach(b => {
+    const h = (b.end-b.start)/60; total += h; roomH[b.room] += h; daily[b.date] += h;
+    const ok = attendedBy(idx,b,b.owner);
+    const o = owners[b.owner] || (owners[b.owner]={booked:0, ns:0, wasted:0});
+    o.booked++; if(!ok){ o.ns++; o.wasted+=h; nsN++; nsH+=h; }
+    const d = person(b.owner).dept; dept[d] = (dept[d]||0)+h;
+    new Set(b.participants).forEach(pid => { if(attendedBy(idx,b,pid)){ const u = users[pid]||(users[pid]={h:0,n:0}); u.h+=h; u.n++; } });
+    if(b.mode==='course' && b.participants.length>=2) b.participants.forEach(pid => { cTot++; if(attendedBy(idx,b,pid)) cAtt++; });
+    const wd = new Date(b.date+'T00:00:00').getDay();
+    if(wd>=1 && wd<=5) for(let hr=7; hr<19; hr++){
+      const ov = Math.min(b.end,(hr+1)*60) - Math.max(b.start,hr*60);
+      if(ov>0){ const k = wd+'-'+hr; heat[k] = (heat[k]||0)+ov; }
+    }
+  });
+  const logsIn = S.logs.filter(l => { const d = iso(l.t); return d>=from && d<=today && (l.type==='open'||l.type==='deny'); });
+  const reasons = {}; logsIn.filter(l=>l.type==='deny').forEach(l => { const k = l.note.a.r; reasons[k]=(reasons[k]||0)+1; });
+  return {days, capRoom, ended, roomH, total, users, owners, dept, daily, dayList, heat, wdN, nsN, nsH, cAtt, cTot,
+    opens:logsIn.filter(l=>l.type==='open').length, denies:logsIn.filter(l=>l.type==='deny').length, reasons};
+}
+
+function renderDash(){
+  const X = dashCompute();
+  { const d = new Date();
+    $('#ph-title').textContent = t('rpt_title');
+    $('#ph-sub').textContent = t('rpt_sub',{period:t(S.dashDays===7?'dash_p7':'dash_p30'), cap:S.cap, date:`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`}); }
+  const n1 = v => v.toFixed(1), n0 = v => Math.round(v);
+  const occ = X.total / (X.capRoom*ROOMS.length) * 100;
+  const nsRate = X.ended.length ? X.nsN/X.ended.length*100 : 0;
+  const att = X.cTot ? X.cAtt/X.cTot*100 : 0;
+  $('#kpis').innerHTML = [
+    ['k_occ', n0(occ)+'%'], ['k_hours', n0(X.total)+'h'], ['k_sessions', X.ended.length],
+    ['k_noshow', n0(nsRate)+'%'], ['k_attend', n0(att)+'%']
+  ].map(([k,v]) => `<div class="kpi"><b>${v}</b><span>${t(k)}</span></div>`).join('');
+
+  // utilization by room
+  const rows = ROOMS.map(r => ({r, h:X.roomH[r.id], p:X.roomH[r.id]/X.capRoom*100})).sort((a,b)=>b.p-a.p);
+  $('#c-util').innerHTML = rows.map(x => {
+    const cls = x.p<20 ? 'low' : x.p>=70 ? 'high' : '';
+    return `<div class="urow"><span><b>${x.r.name}</b></span><span class="tr"><i class="${cls}" style="width:${Math.min(100,x.p)}%"></i></span><span class="v">${n1(x.h)}h / ${n0(X.capRoom)}h · <b>${n0(x.p)}%</b></span></div>`;
+  }).join('');
+
+
+  // daily trend (SVG)
+  const W=620, H=210, L=30, Bm=24, Tp=10, innerW=W-L-4, innerH=H-Bm-Tp;
+  const vals = X.dayList.map(d => X.daily[d.iso]);
+  const mx = Math.max(10, Math.ceil(Math.max(...vals)/10)*10);
+  const bw = innerW / X.dayList.length;
+  let g = '';
+  for(let i=0;i<=4;i++){ const y = Tp + innerH - innerH*i/4; g += `<line x1="${L}" x2="${W-4}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-5}" y="${y+3}" text-anchor="end">${Math.round(mx*i/4)}</text>`; }
+  X.dayList.forEach((d,i) => {
+    const v = vals[i], h = innerH*v/mx, x = L + i*bw + bw*0.15;
+    if(v>0) g += `<rect x="${x}" y="${Tp+innerH-h}" width="${bw*0.7}" height="${h}" rx="2" style="fill:var(--brand)"><title>${d.iso.slice(5).split('-').reverse().join('/')}: ${n1(v)}h</title></rect>`;
+    if(i % (X.days>10?5:1) === 0) g += `<text x="${x+bw*0.35}" y="${H-8}" text-anchor="middle">${d.iso.slice(8)}/${d.iso.slice(5,7)}</text>`;
+  });
+  const workDays = X.dayList.filter(d => d.wd>=1 && d.wd<=5 && (d.iso<dayIso(0))).length || 1;
+  const avg = vals.reduce((s,v)=>s+v,0)/workDays;
+  const ay = Tp + innerH - innerH*Math.min(avg,mx)/mx;
+  g += `<line x1="${L}" x2="${W-4}" y1="${ay}" y2="${ay}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  $('#c-trend').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+  $('#c-trend-sub').textContent = t('c_trend_avg',{n:n1(avg)});
+
+  // heatmap
+  const cells = {}; let cmax = 0;
+  for(let wd=1; wd<=5; wd++) for(let hr=7; hr<19; hr++){
+    const v = (X.heat[wd+'-'+hr]||0) / ((X.wdN[wd]||1)*ROOMS.length*60) * 100;
+    cells[wd+'-'+hr] = v; if(v>cmax) cmax=v;
+  }
+  let hm = '<div></div>'; for(let hr=7; hr<19; hr++) hm += `<div class="hl">${hr}</div>`;
+  for(let wd=1; wd<=5; wd++){
+    hm += `<div class="hl wd">${t('wd'+wd)}</div>`;
+    for(let hr=7; hr<19; hr++){
+      const v = cells[wd+'-'+hr], k = cmax ? v/cmax : 0;
+      hm += `<div class="hc" title="${t('wd'+wd)} ${hr}:00 · ${n0(v)}%" style="background:color-mix(in srgb,var(--brand) ${Math.round(k*100)}%,var(--canvas));color:${k>0.55?'var(--brand-ink)':'var(--ink2)'}">${v>=1?n0(v):''}</div>`;
+    }
+  }
+  $('#c-heat').innerHTML = `<div class="heat">${hm}</div>`;
+
+  // top users
+  const tu = Object.entries(X.users).sort((a,b)=>b[1].h-a[1].h).slice(0,5);
+  $('#c-top').innerHTML = tu.length ? tu.map(([id,u],i) => `<div class="rank"><span class="no">${i+1}</span><div class="nm"><b>${esc(person(id).name)}</b><br><span class="muted small">${esc(t(person(id).dept))}</span></div><div class="val"><b>${n1(u.h)}h</b><br><span class="muted small">${t('n_sessions',{n:u.n})}</span></div></div>`).join('') : `<p class="note">${t('no_events')}</p>`;
+
+  // no-show
+  const ns = Object.entries(X.owners).filter(([,o])=>o.ns>0).sort((a,b)=>b[1].wasted-a[1].wasted).slice(0,5);
+  $('#c-ns').innerHTML = ns.length ? `<div style="overflow:auto"><table><thead><tr><th>${t('th_person')}</th><th>${t('th_booked')}</th><th>${t('th_noshow')}</th><th>${t('th_wasted')}</th></tr></thead><tbody>` +
+    ns.map(([id,o]) => { const r = o.ns/o.booked*100; return `<tr><td><b>${esc(person(id).name)}</b><br><span class="muted small">${esc(t(person(id).dept))}</span></td><td>${o.booked}</td><td><span class="pill ${r>=25?'bad':'warn'}">${o.ns} · ${n0(r)}%</span></td><td>${n1(o.wasted)}h</td></tr>`; }).join('') +
+    '</tbody></table></div>' : `<p class="note">${t('none_noshow')}</p>`;
+
+  // dept
+  const dp = Object.entries(X.dept).sort((a,b)=>b[1]-a[1]), dmx = dp.length ? dp[0][1] : 1;
+  $('#c-dept').innerHTML = dp.map(([d,h]) => `<div class="urow" style="grid-template-columns:96px minmax(0,1fr) 54px"><span>${esc(t(d))}</span><span class="tr"><i style="width:${h/dmx*100}%"></i></span><span class="v"><b>${n0(h)}h</b></span></div>`).join('');
+
+  // access
+  const tot = X.opens + X.denies, rate = tot ? X.opens/tot*100 : 0;
+  const rs = Object.entries(X.reasons).sort((a,b)=>b[1]-a[1]), rmx = rs.length ? rs[0][1] : 1;
+  $('#c-acc').innerHTML = `<div class="big3"><div><b>${X.opens}</b><span>${t('acc_ok')}</span></div><div><b>${X.denies}</b><span>${t('acc_deny')}</span></div><div><b>${n0(rate)}%</b><span>${t('acc_rate')}</span></div></div>` +
+    (rs.length ? `<h3>${t('acc_reasons')}</h3>` + rs.map(([k,v]) => `<div class="urow" style="grid-template-columns:150px minmax(0,1fr) 30px"><span class="small">${t(k)}</span><span class="tr"><i class="low" style="width:${v/rmx*100}%"></i></span><span class="v"><b>${v}</b></span></div>`).join('') : '');
+}
+
+/* =====================  manage bookings (admin)  ===================== */
+const dmy = d => d.split('-').reverse().join('/');
+function renderManage(){
+  const today = dayIso(0), sc = $('#m-scope').value || 'upcoming', fr = $('#m-room').value, fs = $('#m-status').value, q = $('#m-q').value.trim().toLowerCase();
+  const list = S.bookings.filter(b =>
+    (sc==='all' || (sc==='upcoming' ? b.date>=today : b.date<today)) && (!fr || b.room===fr) && (!fs || b.status===fs) &&
+    (!q || tl(b.title).toLowerCase().includes(q) || person(b.owner).name.toLowerCase().includes(q)))
+    .sort((a,b) => { const k=(a.date+fmt(a.start)).localeCompare(b.date+fmt(b.start)); return sc==='upcoming' ? k : -k; });
+  const shown = list.slice(0,100);
+  $('#m-body').innerHTML = shown.length ? shown.map(b => {
+    const [c,k] = STATUS[b.status], o = person(b.owner);
+    return `<tr><td style="white-space:nowrap">${dmy(b.date)}</td><td style="white-space:nowrap">${fmt(b.start)}-${fmt(b.end)}</td><td>${room(b.room).name}</td>
+      <td>${esc(tl(b.title))}</td><td>${esc(o.name)}<br><span class="muted small">${esc(t(o.dept))}</span></td><td>${b.participants.length}</td>
+      <td class="small">${t(b.mode==='course'?'mode_course_t':'mode_reg_t')}</td><td><span class="pill ${c}">${t(k)}</span></td>
+      <td style="white-space:nowrap"><button class="btn ghost sm" data-edit="${b.id}">${t('edit')}</button> <button class="btn ghost sm dng" data-del="${b.id}">${t('delete')}</button></td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="muted">${t('mg_none')}</td></tr>`;
+  $('#m-count').textContent = list.length > shown.length ? t('mg_count',{n:shown.length,total:list.length}) : '';
+}
+let EDIT = null, DEL = null;
+function renderEditParts(){
+  const own = $('#ed-owner').value; EDIT.parts.add(own);
+  $('#ed-parts').innerHTML = PEOPLE.map(p => `<label class="chk"><input type="checkbox" data-pp="${p.id}" ${EDIT.parts.has(p.id)?'checked':''} ${p.id===own?'disabled':''}> <span>${esc(p.name)} <span class="muted small">${esc(t(p.dept))}</span></span></label>`).join('');
+}
+function openEdit(id){
+  const b = S.bookings.find(x => x.id===id); if(!b) return;
+  EDIT = {id, parts:new Set(b.participants), orig:b.title};
+  $('#ed-room').value = b.room; $('#ed-date').value = b.date; $('#ed-start').value = b.start; $('#ed-end').value = b.end;
+  $('#ed-title').value = tl(b.title); $('#ed-owner').value = b.owner; $('#ed-status').value = b.status; $('#ed-mode').value = b.mode;
+  $('#ed-err').textContent = ''; renderEditParts(); $('#dlg-edit').showModal();
+}
+function saveEdit(){
+  const b = S.bookings.find(x => x.id===EDIT.id); if(!b) return;
+  const rid = $('#ed-room').value, date = $('#ed-date').value, s = +$('#ed-start').value, e = +$('#ed-end').value;
+  const status = $('#ed-status').value, own = $('#ed-owner').value, mode = $('#ed-mode').value, r = room(rid);
+  EDIT.parts.add(own);
+  const err = m => { $('#ed-err').textContent = m; };
+  if(!date) return err(t('ed_err_date'));
+  if(e <= s) return err(t('ed_err_time'));
+  if(status==='confirmed' || status==='pending'){
+    const clash = S.bookings.find(x => x.id!==b.id && x.room===rid && x.date===date && active(x) && overlap(s,e,x.start,x.end));
+    if(clash) return err(t('ed_err_conflict',{room:r.name, time:`${fmt(clash.start)}-${fmt(clash.end)}`}));
+  }
+  if(EDIT.parts.size > r.cap) return err(t('ed_err_cap',{room:r.name, cap:r.cap, n:EDIT.parts.size}));
+  const ti = $('#ed-title').value.trim();
+  Object.assign(b, {room:rid, date, off:0, start:s, end:e, owner:own, mode, status,
+    participants:[own, ...[...EDIT.parts].filter(x => x!==own)], title:(!ti || ti===tl(EDIT.orig)) ? EDIT.orig : ti});
+  S.logs.push({t:new Date(), room:rid, person:S.me, type:'edit', note:{k:'n_edit', a:{room:r.name, time:`${fmt(s)}-${fmt(e)}`, date:dmy(date)}}});
+  $('#dlg-edit').close(); toast(t('toast_edited')); renderAll();
+}
+function openDel(id){
+  const b = S.bookings.find(x => x.id===id); if(!b) return;
+  DEL = id;
+  $('#del-body').textContent = t('del_body',{room:room(b.room).name, time:`${fmt(b.start)}-${fmt(b.end)}`, date:dmy(b.date), name:person(b.owner).name});
+  $('#dlg-del').showModal();
+}
+function confirmDel(){
+  const i = S.bookings.findIndex(x => x.id===DEL); if(i<0) return;
+  const b = S.bookings[i]; S.bookings.splice(i,1);
+  S.logs.push({t:new Date(), room:b.room, person:S.me, type:'delete', note:{k:'n_delete', a:{room:room(b.room).name, time:`${fmt(b.start)}-${fmt(b.end)}`, date:dmy(b.date), name:person(b.owner).name}}});
+  if(S.roomSel===b.id) S.roomSel=null;
+  $('#dlg-del').close(); toast(t('toast_deleted')); renderAll();
+}
+
+/* =====================  shell  ===================== */
+let toastT;
+function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),2800); }
+function renderAll(){ updateBook(); renderDoorSide(); renderHist(); renderManage(); renderDash(); }
+const TABS = ['book','door','hist','manage','dash'], ADMIN_TABS = ['manage','dash'];
+const isAdmin = () => person(S.me).level === 3;
+function applyRole(){
+  const a = isAdmin();
+  ADMIN_TABS.forEach(k => $('#tab-'+k).hidden = !a);
+  if(!a && ADMIN_TABS.includes(S.tab)) showTab('book');
+}
+function showTab(name){
+  if(ADMIN_TABS.includes(name) && !isAdmin()) name = 'book';
+  S.tab = name;
+  TABS.forEach(k => { $('#v-'+k).classList.toggle('on', k===name); $('#tab-'+k).setAttribute('aria-selected', k===name); });
+  if(name!=='door'){ $('#d-cam').checked=false; stopCam(); }
+  renderAll();
+}
+function setRole(admin){
+  S.me = admin ? 'p11' : 'p1'; S.parts=[S.me]; S.roomSel=null;
+  $('#role-admin').setAttribute('aria-pressed', admin); $('#role-staff').setAttribute('aria-pressed', !admin);
+  $('#d-person').value = S.me;
+  applyRole(); if(admin) toast(t('toast_admin_mode')); renderAll();
+}
+
+function init(){
+  seed();
+  applyStatic(); buildTimeSelects(); buildSelects();
+  $('#d-room').value = 'r201'; $('#d-person').value = 'p2';
+
+  TABS.forEach(k => $('#tab-'+k).onclick = () => showTab(k));
+  $('#role-staff').onclick = () => setRole(false); $('#role-admin').onclick = () => setRole(true);
+  ['vi','en','zh'].forEach(l => $('#lang-'+l).onclick = () => setLang(l));
+
+  $('#clock').onchange = e => { const [h,m] = e.target.value.split(':').map(Number); S.clock = h*60+m; renderAll(); };
+  $('#f-date').onchange = e => { S.date = e.target.value || dayIso(0); updateBook(); };
+  $('#f-start').onchange = e => { S.start = +e.target.value; if(S.end<=S.start){ S.end=Math.min(S.start+60,DAY1); $('#f-end').value=S.end; } updateBook(); };
+  $('#f-end').onchange = e => { S.end = +e.target.value; if(S.end<=S.start){ S.start=Math.max(S.end-60,DAY0); $('#f-start').value=S.start; } updateBook(); };
+  $('#f-title').oninput = e => S.title = e.target.value;
+  $('#f-search').oninput = renderResults;
+  document.querySelectorAll('input[name=mode]').forEach(i => i.onchange = e => S.mode = e.target.value);
+
+  $('#rooms').onclick = e => {
+    const row = e.target.closest('[data-room]'); if(!row) return;
+    const r = room(row.dataset.room), st = roomStatus(r);
+    if(!st.ok){ toast(st.k==='busy' ? t('toast_busy',{room:r.name}) : t('toast_cap',{room:r.name, n:r.cap})); return; }
+    S.roomSel = r.id; updateBook();
+  };
+  $('#results').onclick = e => { const b=e.target.closest('[data-add]'); if(!b) return; S.parts.push(b.dataset.add); $('#f-search').value=''; renderResults(); updateBook(); };
+  $('#chips').onclick = e => { const b=e.target.closest('[data-rm]'); if(!b) return; S.parts = S.parts.filter(x=>x!==b.dataset.rm); updateBook(); };
+  $('#btn-book').onclick = submitBooking;
+  $('#mine').onclick = e => {
+    const b=e.target.closest('[data-cancel]'); if(!b) return;
+    const bk=S.bookings.find(x=>x.id===b.dataset.cancel); bk.status='cancelled';
+    S.logs.push({t:new Date(), room:bk.room, person:S.me, type:'book', note:{k:'n_cancel', a:{time:`${fmt(bk.start)}-${fmt(bk.end)}`}}});
+    toast(t('toast_cancelled')); renderAll();
+  };
+  $('#admin-box').onclick = e => {
+    const a=e.target.closest('[data-approve]'), r=e.target.closest('[data-reject]');
+    const id = a ? a.dataset.approve : r ? r.dataset.reject : null; if(!id) return;
+    const bk=S.bookings.find(x=>x.id===id);
+    bk.status = a ? 'confirmed' : 'rejected';
+    S.logs.push({t:new Date(), room:bk.room, person:S.me, type:'approve', note:{k:a?'n_approve':'n_reject', a:{name:person(bk.owner).name}}});
+    toast(t(a ? 'toast_approved' : 'toast_rejected')); renderAll();
+  };
+
+  $('#d-room').onchange = () => { scanTok++; S.doorOpen=false; setTerm('idle','t_ready','t_ready_sub'); $('#d-scan').disabled=false; renderDoorSide(); };
+  $('#d-cam').onchange = e => toggleCam(e.target.checked);
+  $('#d-scan').onclick = scan;
+  ['h-room','h-person','h-type'].forEach(id => $('#'+id).onchange = renderHist);
+  $('#h-csv').onclick = exportCsv;
+  $('#h-xlsx').onclick = exportXlsx;
+  $('#x-pdf').onclick = printDash;
+  $('#x-days').onchange = e => { S.dashDays = +e.target.value; renderDash(); };
+  $('#x-cap').oninput = e => { const v = +e.target.value; if(v>=20) { S.cap = v; renderDash(); } };
+
+  ['m-scope','m-room','m-status'].forEach(id => $('#'+id).onchange = renderManage);
+  $('#m-q').oninput = renderManage;
+  $('#m-body').onclick = e => { const a=e.target.closest('[data-edit]'), d=e.target.closest('[data-del]'); if(a) openEdit(a.dataset.edit); else if(d) openDel(d.dataset.del); };
+  $('#ed-owner').onchange = renderEditParts;
+  $('#ed-parts').onchange = e => { const c=e.target.closest('[data-pp]'); if(!c) return; c.checked ? EDIT.parts.add(c.dataset.pp) : EDIT.parts.delete(c.dataset.pp); };
+  $('#ed-save').onclick = saveEdit; $('#ed-close').onclick = () => $('#dlg-edit').close();
+  $('#del-ok').onclick = confirmDel; $('#del-close').onclick = () => $('#dlg-del').close();
+  applyRole(); showTab('book');
+}
+init();
+</script>
+</body>
+</html>
